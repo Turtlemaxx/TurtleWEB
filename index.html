@@ -4,9 +4,73 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Turtle</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 80px;
+            border-style: ridge;
+            margin-bottom: 100px;
+        }
+
+        p {
+            font-size: 16px;
+        }
+
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #fullscreen-gif {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.8); /* dim background */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            display: none;
+        }
+
+        #fullscreen-gif img {
+            max-width: 90%;
+            max-height: 90%;
+        }
+    </style>
 </head>
 <body>
-    <h1>Turtle</h1>
-    <p>Ref is a ed bitch whos dog at sf and almost lost when i was on 400ms and 24fps gtfo </p>
+    <h1>Turties</h1>
+    <p>Welcome to Turties!</p>
+    <p>check out what this bottom button does :D</p>
+
+    <button onclick="showGif()">Click me plis :D</button>
+
+    <div id="fullscreen-gif">
+        <img src="https://cdn.discordapp.com/attachments/1330754723506028688/1332837969114959924/ezgif.com-animated-gif-maker.gif?ex=684f4796&is=684df616&hm=b8d435d52d667be32a23d1e988c07943a0ae5db1ed811713aba6c7520b667cf3&" alt="Turtle GIF">
+    </div>
+
+    <script>
+        function showGif() {
+            const gifContainer = document.getElementById('fullscreen-gif');
+            gifContainer.style.display = 'flex';
+            setTimeout(() => {
+                gifContainer.style.display = 'none';
+            }, 2000);
+        }
+    </script>
 </body>
 </html>
