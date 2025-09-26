@@ -104,10 +104,17 @@
     /* Case Battles */
     .cb-full{max-width:1100px; margin:0 auto}
     .cb-toolbar{display:flex; gap:10px; align-items:center; flex-wrap:wrap}
-    .cases{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px}
-    @media (min-width: 900px){ .cases{grid-template-columns: repeat(3, minmax(0,1fr));} }
-    .case{border:1px solid var(--border); background:#091326; border-radius:12px; padding:10px}
-    .case h4{margin:0 0 6px 0}
+    .cases-wrap{border:1px solid var(--border); background:#0b1426; border-radius:16px; padding:10px}
+    .cases-toolbar{display:flex; gap:8px; align-items:center; margin-bottom:10px}
+    .cases-toolbar input{width:200px}
+    .cases-toolbar .select{min-width:160px}
+    .cases-grid{display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; max-height:420px; overflow:auto; padding-right:4px}
+    @media (min-width: 900px){ .cases-grid{grid-template-columns: repeat(4, minmax(0,1fr));} }
+    .case{border:1px solid var(--border); background:linear-gradient(180deg,#0b1220,#0a1324); border-radius:16px; padding:10px; display:flex; flex-direction:column; gap:8px}
+    .case-hero{height:86px; border-radius:12px; background:radial-gradient(60% 60% at 50% 30%, rgba(255,255,255,.08), transparent 60%),linear-gradient(180deg, rgba(122,162,255,.18), rgba(122,162,255,.04)); display:grid; place-items:center; font-size:34px}
+    .case h4{margin:0; font-size:13px; letter-spacing:.4px}
+    .price{display:inline-flex; align-items:center; gap:6px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.05); border:1px solid var(--border); font-size:12px}
+    .case .add-row{display:flex; gap:8px}
     .lineup{display:flex; gap:8px; flex-wrap:wrap}
     .chip{background:rgba(255,255,255,.06); border:1px solid var(--border); border-radius:999px; padding:6px 10px; font-size:12px}
 
@@ -115,7 +122,7 @@
     .arena{border:1px solid var(--border); border-radius:16px; padding:12px; background:#0b1426}
     .slots{display:grid; grid-template-columns: repeat(2, 1fr); gap:10px}
     @media (min-width: 900px){ .slots{grid-template-columns: repeat(4, 1fr);} }
-    .slot{border:1px solid var(--border); border-radius:12px; padding:10px; min-height:84px; background:#091326}
+    .slot{border:1px solid var(--border); border-radius:12px; padding:10px; min-height:96px; background:#091326}
     .slot .name{font-weight:700; font-size:13px; color:#c9d2ea}
     .slot .item{margin-top:6px}
 
@@ -279,14 +286,23 @@
 
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:12px">
           <div>
-            <h4 style="margin:6px 0">Cases</h4>
-            <div id="cb_cases" class="cases"></div>
+            <div class="cases-wrap">
+              <div class="cases-toolbar">
+                <select id="cb_sort" class="select">
+                  <option value="asc">Lowest price</option>
+                  <option value="desc">Highest price</option>
+                  <option value="name">Name A→Z</option>
+                </select>
+                <input id="cb_search" type="text" placeholder="Search cases..." />
+              </div>
+              <div id="cb_cases" class="cases-grid"></div>
+            </div>
           </div>
           <div>
             <div class="arena">
               <div class="slots" id="cb_slots"></div>
               <div style="margin-top:10px">Round <strong id="cb_round">0</strong> / <strong id="cb_rounds">0</strong></div>
-              <div style="margin-top:6px">Totals — A: <strong id="totalA">$0.00</strong> • B: <strong id="totalB">$0.00</strong></div>
+              <div id="totals" style="margin-top:6px"></div>
               <div id="cb_result" class="hint" style="margin-top:8px"></div>
             </div>
           </div>
@@ -311,155 +327,229 @@
   <div class="toast" id="toast">Welcome!</div>
 
   <script>
-    // ===== Utilities =====
-    const $ = (id) => document.getElementById(id);
-    const qs = (sel) => document.querySelector(sel);
-    const qsa = (sel) => Array.from(document.querySelectorAll(sel));
-    const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-    const delay = (ms)=> new Promise(res=> setTimeout(res, ms));
+    // ====== error overlay to catch issues ======
+    function showError(e){
+      console.error(e);
+      const div=document.createElement('div');
+      div.style.cssText='position:fixed;bottom:10px;left:10px;right:10px;background:#2b1e1e;color:#ffd7d7;border:1px solid #7f1d1d;padding:10px;border-radius:8px;z-index:9999;font-family:ui-monospace;font-size:12px;white-space:pre-wrap;';
+      div.textContent='JS error: '+(e?.message||e);
+      document.body.appendChild(div);
+      setTimeout(()=> div.remove(), 6000);
+    }
 
-    function bytesToHex(bytes){ return Array.from(bytes).map(b=>b.toString(16).padStart(2,"0")).join(""); }
-    function hexToBytes(hex){ const out=new Uint8Array(hex.length/2); for(let i=0;i<out.length;i++){ out[i]=parseInt(hex.substr(i*2,2),16);} return out; }
-    function randHex(bytes=32){ const a=new Uint8Array(bytes); crypto.getRandomValues(a); return bytesToHex(a); }
+    (async function(){ try{
+      // ===== Utilities =====
+      const $ = (id) => document.getElementById(id);
+      const qsa = (sel) => Array.from(document.querySelectorAll(sel));
+      const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+      const delay = (ms)=> new Promise(res=> setTimeout(res, ms));
 
-    async function sha256Hex(text){ const data = new TextEncoder().encode(text); const digest = await crypto.subtle.digest('SHA-256', data); return bytesToHex(new Uint8Array(digest)); }
-    async function hmacSHA256Hex(keyHex, message){ if(!crypto?.subtle) throw new Error('Web Crypto not available'); const keyBytes = hexToBytes(keyHex); const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']); const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message)); return bytesToHex(new Uint8Array(sig)); }
-    function u32FromHashTail(hex){ const tail = hex.slice(-8); return (parseInt(tail,16) >>> 0); }
-    function rollFromU32(u32){ return (u32 / 2**32); } // 0..1
-    function chanceFromMultiplier(mult, houseEdge=0.01){ const base = 1/Math.max(1.0001, mult); const edge = Math.max(0, 1 - houseEdge); return Math.min(0.99, base*edge); }
-    const fmtUSD = (n)=> `$${Number(n).toFixed(2)}`;
+      function bytesToHex(bytes){ return Array.from(bytes).map(b=>b.toString(16).padStart(2,"0")).join(""); }
+      function hexToBytes(hex){ const out=new Uint8Array(hex.length/2); for(let i=0;i<out.length;i++){ out[i]=parseInt(hex.substr(i*2,2),16);} return out; }
+      function randHex(bytes = 32) {
+         const a = new Uint8Array(bytes);
+          try {
+           if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+            window.crypto.getRandomValues(a); // correct binding — no illegal invocation
+           } else {
+            for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+           }
+         } catch {
+          for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+         }
+          return bytesToHex(a);
+        }
 
-    // ===== Shared PF / Balance State =====
-    let balance = 100.00;
-    let serverSeed = randHex(32); let serverSeedHash = ''; let clientSeed = randHex(8); let nonce = 0;
-    async function commitServerSeed(){ serverSeedHash = await sha256Hex(serverSeed); }
-    function syncTop(){ $('balance').textContent = fmtUSD(balance); }
+      async function sha256Hex(text){ const data = new TextEncoder().encode(text); const d = await (crypto?.subtle?.digest('SHA-256', data) || Promise.reject('WebCrypto not available')); return bytesToHex(new Uint8Array(d)); }
+      async function hmacSHA256Hex(keyHex, message){ const keyBytes = hexToBytes(keyHex); const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, {name:'HMAC', hash:'SHA-256'}, false, ['sign']); const sig = await crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message)); return bytesToHex(new Uint8Array(sig)); }
+      function u32FromHashTail(hex){ const tail = hex.slice(-8); return (parseInt(tail,16) >>> 0); }
+      function rollFromU32(u32){ return (u32 / 2**32); }
+      function chanceFromMultiplier(mult, houseEdge=0.01){ const base = 1/Math.max(1.0001, mult); const edge = Math.max(0, 1 - houseEdge); return Math.min(0.99, base*edge); }
+      const fmtUSD = (n)=> `$${Number(n).toFixed(2)}`;
 
-    // simple router via hash
-    function goto(tab){ location.hash = tab==='home'?'':'#'+tab; }
-    function applyRoute(){ const tab = location.hash.replace('#','') || 'home'; $('gameSelect').value=tab; qsa('[data-screen]').forEach(el=> el.style.display = (el.dataset.screen===tab?'':'none')); }
-    window.addEventListener('hashchange', applyRoute);
+      // ===== Shared PF / Balance State =====
+      let balance = 100.00;
+      let serverSeed = randHex(32); let serverSeedHash = ''; let clientSeed = randHex(8); let nonce = 0;
+      async function commitServerSeed(){ serverSeedHash = await sha256Hex(serverSeed); }
+      function syncTop(){ $('balance').textContent = fmtUSD(balance); }
 
-    // UI: header
-    let logoClicks=0; let logoTimer=null;
-    $('logoBtn').addEventListener('click', ()=>{ goto('home'); const t=$('toast'); t.textContent='Welcome!'; t.style.display='block'; setTimeout(()=> t.style.display='none', 1200); logoClicks++; clearTimeout(logoTimer); logoTimer=setTimeout(()=>{logoClicks=0;},600); if(logoClicks>=3){ const dm=$('devMoney'); dm.style.display = dm.style.display==='none'?'flex':'none'; logoClicks=0; } });
-    $('walletIcon').addEventListener('click', ()=> $('walletModal').style.display='flex');
-    $('wm_close').addEventListener('click', ()=> $('walletModal').style.display='none');
-    $('spawnBtn')?.addEventListener('click', ()=>{ const amt=parseFloat($('spawnAmt').value||'0'); if(amt>0){ balance=Math.min(balance+amt,1_000_000_000); syncTop(); }});
-    $('gameSelect').addEventListener('change', (e)=> goto(e.target.value));
-    $('goCaseBattles').addEventListener('click', ()=> goto('casebattles'));
+      // simple router via hash
+      function goto(tab){ location.hash = tab==='home'?'':'#'+tab; }
+      function applyRoute(){ const tab = location.hash.replace('#','') || 'home'; $('gameSelect').value=tab; qsa('[data-screen]').forEach(el=> el.style.display = (el.dataset.screen===tab?'':'none')); }
+      window.addEventListener('hashchange', applyRoute);
 
-    // ===== SLIDER =====
-    let wager = 10; let mult = 2; let houseEdge = 0.01; let auto = false;
-    const ui = { wager:$('wager'), mult:$('mult'), edge:$('edge'), edgeLabel:$('edgeLabel'), hint:$('hint'), rollBtn:$('rollBtn'), autoBtn:$('autoBtn'), winzone:$('winzone'), marker:$('marker'), targetText:$('targetText'), history:$('history'), serverSeed:$('serverSeed'), serverSeedHash:$('serverSeedHash'), clientSeed:$('clientSeed'), nonce:$('nonce'), newSeeds:$('newSeeds') };
-    function updateWinUI(){ const p = chanceFromMultiplier(mult, houseEdge); if(ui.winzone) ui.winzone.style.width=(p*100)+'%'; if(ui.targetText) ui.targetText.textContent=`target < ${(p*100).toFixed(2)}`; const profit=Math.round(wager*(mult-1)); if(ui.hint) ui.hint.textContent=`Chance to win ≈ ${(p*100).toFixed(2)}% • On win ${fmtUSD(Math.round(wager*mult))} total (+${fmtUSD(profit)}).`; }
-    function syncInputs(){ $('year').textContent=new Date().getFullYear(); $('year2').textContent=new Date().getFullYear(); syncTop(); if(ui.wager) ui.wager.value=wager; if(ui.mult) ui.mult.value=mult; if(ui.edge){ ui.edge.value=(houseEdge*100).toFixed(1); ui.edgeLabel.textContent=(houseEdge*100).toFixed(1);} if(ui.clientSeed) ui.clientSeed.value=clientSeed; if(ui.nonce) ui.nonce.value=nonce; if(ui.serverSeed) ui.serverSeed.textContent=serverSeed; if(ui.serverSeedHash) ui.serverSeedHash.textContent=serverSeedHash; updateWinUI(); }
-    function pushHistory(item){ if(!ui.history) return; const div=document.createElement('div'); div.className=`pill ${item.outcome==='win'?'win':'lose'}`; div.innerHTML=`<div style="display:flex; justify-content:space-between; gap:8px"><strong>${item.outcome.toUpperCase()}</strong><span>${item.profit>0?'+':''}${fmtUSD(item.profit)}</span></div><div class="small muted">roll ${(item.roll*100).toFixed(2)} • target < ${(item.target*100).toFixed(2)}</div>`; ui.history.prepend(div); while(ui.history.children.length>24) ui.history.removeChild(ui.history.lastChild); }
-    function canRoll(){ return balance>0 && wager>0 && wager<=balance; }
-    async function doRoll(){ if(!canRoll()) return; if(ui.rollBtn) ui.rollBtn.disabled=true; const bet=Math.floor(clamp(wager,1,balance)); let hmac; try{ hmac=await hmacSHA256Hex(serverSeed, `${clientSeed}:${nonce}`);}catch(e){ alert('Serve via https or localhost for crypto.'); if(ui.rollBtn) ui.rollBtn.disabled=false; return;} const r=rollFromU32(u32FromHashTail(hmac)); const target=chanceFromMultiplier(mult,houseEdge); const win=r<target; const profit = win?Math.round(bet*(mult-1)):-bet; balance=clamp(balance+profit,0,1_000_000_000); const pct=clamp(r*100,0,99.999); if(ui.marker){ ui.marker.style.transition='left 420ms cubic-bezier(.2,.8,.2,1)'; ui.marker.style.left=pct+'%'; } pushHistory({outcome:win?'win':'lose',profit,roll:r,target}); nonce+=1; syncInputs(); setTimeout(()=> ui.rollBtn && (ui.rollBtn.disabled=false),450); }
-    ui.wager?.addEventListener('input', ()=>{ wager=clamp(parseFloat(ui.wager.value||'0'),0,balance); updateWinUI(); }); ui.mult?.addEventListener('input', ()=>{ mult=clamp(parseFloat(ui.mult.value||'1'),1.01,50); updateWinUI(); }); ui.edge?.addEventListener('input', ()=>{ houseEdge=clamp(parseFloat(ui.edge.value)/100,0,.05); ui.edgeLabel.textContent=(houseEdge*100).toFixed(1); updateWinUI(); }); ui.rollBtn?.addEventListener('click', doRoll); let autoTimer=null; ui.autoBtn?.addEventListener('click', ()=>{ auto=!auto; ui.autoBtn.textContent=auto?'Stop Auto':'Auto Play'; if(auto){ const tick=async()=>{ if(!auto) return; if(canRoll()) await doRoll(); autoTimer=setTimeout(tick,320); }; tick(); } else if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; } }); ui.newSeeds?.addEventListener('click', ()=>{ newSeedSet(); }); ui.clientSeed?.addEventListener('input', ()=>{ clientSeed=ui.clientSeed.value; }); ui.nonce?.addEventListener('input', ()=>{ nonce=parseInt(ui.nonce.value||'0'); }); async function newSeedSet(){ serverSeed=randHex(32); clientSeed=randHex(8); nonce=0; await commitServerSeed(); syncInputs(); ui.history && (ui.history.innerHTML=''); resetMines(); }
+      // UI: header
+      let logoClicks=0; let logoTimer=null;
+      $('logoBtn').addEventListener('click', ()=>{ goto('home'); const t=$('toast'); t.textContent='Welcome!'; t.style.display='block'; setTimeout(()=> t.style.display='none', 1200); logoClicks++; clearTimeout(logoTimer); logoTimer=setTimeout(()=>{logoClicks=0;},600); if(logoClicks>=3){ const dm=$('devMoney'); dm.style.display = dm.style.display==='none'?'flex':'none'; logoClicks=0; } });
+      $('walletIcon').addEventListener('click', ()=> $('walletModal').style.display='flex');
+      $('wm_close').addEventListener('click', ()=> $('walletModal').style.display='none');
+      $('spawnBtn')?.addEventListener('click', ()=>{ const amt=parseFloat($('spawnAmt').value||'0'); if(amt>0){ balance=Math.min(balance+amt,1_000_000_000); syncTop(); }});
+      $('gameSelect').addEventListener('change', (e)=> goto(e.target.value));
+      document.getElementById('goCaseBattles').addEventListener('click', ()=> goto('casebattles'));
+      document.querySelectorAll('[data-go]').forEach(btn=> btn.addEventListener('click', ()=> goto(btn.dataset.go)));
 
-    // ===== MINES =====
-    const BOARD_SIZE = 25; let m_roundActive=false; let m_revealedSafe=0; let m_minesCount=3; let m_wager=5; let m_mineSet=new Set(); let m_roundNonce=null;
-    const m_ui = { wager:$('m_wager'), mines:$('m_mines'), start:$('m_start'), cashout:$('m_cashout'), status:$('m_status'), board:$('board'), safe:$('m_safe'), mult:$('m_mult') };
-    function minesMultiplier(safeClicks, mines){ const total=25; const safe=total-mines; let mul=1; for(let i=0;i<safeClicks;i++){ const remainingTiles=total-i; const remainingSafe=safe-i; const p=remainingSafe/remainingTiles; mul*=1/p; } const edge=0.01; return Math.max(1, mul*(1-edge)); }
-    function updateMinesHUD(){ if(!m_ui.safe) return; m_ui.safe.textContent=m_revealedSafe; const mm=minesMultiplier(m_revealedSafe,m_minesCount); m_ui.mult.textContent=mm.toFixed(2)+'×'; m_ui.cashout.disabled=!m_roundActive||m_revealedSafe===0; }
-    async function generateMines(roundNonce){ m_mineSet.clear(); let i=0; while(m_mineSet.size<m_minesCount){ const h=await hmacSHA256Hex(serverSeed,`${clientSeed}:${roundNonce}:mines:${i}`); const val=(parseInt(h.slice(0,8),16)>>>0)%BOARD_SIZE; m_mineSet.add(val); i++; } }
-    function renderBoard(disabled=false){ if(!m_ui.board) return; m_ui.board.innerHTML=''; for(let i=0;i<BOARD_SIZE;i++){ const tile=document.createElement('button'); tile.className='tile'; tile.dataset.idx=i; if(disabled) tile.disabled=true; const label=document.createElement('div'); label.className='label'; label.textContent=''; tile.appendChild(label); tile.addEventListener('click',()=> onTile(i,tile)); m_ui.board.appendChild(tile);} }
-    async function startMines(){ if(m_roundActive) return; m_wager=clamp(parseFloat(m_ui.wager.value||'0'),1,balance); m_minesCount=clamp(parseInt(m_ui.mines.value||'3'),1,10); if(m_wager<=0||m_wager>balance){ m_ui.status.textContent='Invalid wager.'; return; } m_roundNonce=nonce; nonce+=1; await generateMines(m_roundNonce); renderBoard(false); m_revealedSafe=0; m_roundActive=true; m_ui.status.textContent=`Round started with ${m_minesCount} mines. Click tiles or Cash Out.`; updateMinesHUD(); syncInputs(); }
-    async function onTile(idx,el){ if(!m_roundActive) return; const isMine=m_mineSet.has(idx); el.classList.add('revealed'); if(isMine){ el.classList.add('mine'); el.querySelector('.label').textContent='💥'; balance=clamp(balance-m_wager,0,1_000_000_000); m_roundActive=false; revealAll(); m_ui.status.textContent='Boom! You hit a mine.'; syncInputs(); } else { el.classList.add('safe'); el.querySelector('.label').textContent='✓'; el.disabled=true; m_revealedSafe++; updateMinesHUD(); } }
-    function revealAll(){ qsa('.tile').forEach((el,i)=>{ el.disabled=true; if(m_mineSet.has(i)){ el.classList.add('revealed','mine'); el.querySelector('.label').textContent='💣'; } }); }
-    function cashOut(){ if(!m_roundActive||m_revealedSafe===0) return; const mul=minesMultiplier(m_revealedSafe,m_minesCount); const profit=Math.round(m_wager*(mul-1)); balance=clamp(balance+profit,0,1_000_000_000); m_roundActive=false; revealAll(); m_ui.status.textContent=`Cashed out at ${mul.toFixed(2)}× for +${fmtUSD(profit)}.`; syncInputs(); }
-    m_ui.start?.addEventListener('click', startMines); m_ui.cashout?.addEventListener('click', cashOut);
-    function resetMines(){ m_roundActive=false; m_revealedSafe=0; renderBoard(true); updateMinesHUD(); if(m_ui.status) m_ui.status.textContent='Set wager and mines, then start.'; }
+      // ===== SLIDER =====
+      let wager = 10; let mult = 2; let houseEdge = 0.01; let auto = false;
+      const ui = { wager:$('wager'), mult:$('mult'), edge:$('edge'), edgeLabel:$('edgeLabel'), hint:$('hint'), rollBtn:$('rollBtn'), autoBtn:$('autoBtn'), winzone:$('winzone'), marker:$('marker'), targetText:$('targetText'), history:$('history'), serverSeed:$('serverSeed'), serverSeedHash:$('serverSeedHash'), clientSeed:$('clientSeed'), nonce:$('nonce'), newSeeds:$('newSeeds') };
+      function updateWinUI(){ const p = chanceFromMultiplier(mult, houseEdge); if(ui.winzone) ui.winzone.style.width=(p*100)+'%'; if(ui.targetText) ui.targetText.textContent=`target < ${(p*100).toFixed(2)}`; const profit=Math.round(wager*(mult-1)); if(ui.hint) ui.hint.textContent=`Chance to win ≈ ${(p*100).toFixed(2)}% • On win ${fmtUSD(Math.round(wager*mult))} total (+${fmtUSD(profit)}).`; }
+      function syncInputs(){ $('year').textContent=new Date().getFullYear(); $('year2').textContent=new Date().getFullYear(); syncTop(); if(ui.wager) ui.wager.value=wager; if(ui.mult) ui.mult.value=mult; if(ui.edge){ ui.edge.value=(houseEdge*100).toFixed(1); ui.edgeLabel.textContent=(houseEdge*100).toFixed(1);} if(ui.clientSeed) ui.clientSeed.value=clientSeed; if(ui.nonce) ui.nonce.value=nonce; if(ui.serverSeed) ui.serverSeed.textContent=serverSeed; if(ui.serverSeedHash) ui.serverSeedHash.textContent=serverSeedHash; updateWinUI(); }
+      function pushHistory(item){ if(!ui.history) return; const div=document.createElement('div'); div.className=`pill ${item.outcome==='win'?'win':'lose'}`; div.innerHTML=`<div style="display:flex; justify-content:space-between; gap:8px"><strong>${item.outcome.toUpperCase()}</strong><span>${item.profit>0?'+':''}${fmtUSD(item.profit)}</span></div><div class="small muted">roll ${(item.roll*100).toFixed(2)} • target < ${(item.target*100).toFixed(2)}</div>`; ui.history.prepend(div); while(ui.history.children.length>24) ui.history.removeChild(ui.history.lastChild); }
+      function canRoll(){ return balance>0 && wager>0 && wager<=balance; }
+      async function doRoll(){ if(!canRoll()) return; if(ui.rollBtn) ui.rollBtn.disabled=true; const bet=Math.floor(clamp(wager,1,balance)); let hmac; try{ hmac=await hmacSHA256Hex(serverSeed, `${clientSeed}:${nonce}`);}catch(e){ showError('Serve via https or localhost for crypto.'); if(ui.rollBtn) ui.rollBtn.disabled=false; return;} const r=rollFromU32(u32FromHashTail(hmac)); const target=chanceFromMultiplier(mult,houseEdge); const win=r<target; const profit = win?Math.round(bet*(mult-1)):-bet; balance=clamp(balance+profit,0,1_000_000_000); const pct=Math.max(0, Math.min(99.999, r*100)); if(ui.marker){ ui.marker.style.transition='left 420ms cubic-bezier(.2,.8,.2,1)'; ui.marker.style.left=pct+'%'; } pushHistory({outcome:win?'win':'lose',profit,roll:r,target}); nonce+=1; syncInputs(); setTimeout(()=> ui.rollBtn && (ui.rollBtn.disabled=false),450); }
+      ui.wager?.addEventListener('input', ()=>{ wager=clamp(parseFloat(ui.wager.value||'0'),0,balance); updateWinUI(); }); ui.mult?.addEventListener('input', ()=>{ mult=clamp(parseFloat(ui.mult.value||'1'),1.01,50); updateWinUI(); }); ui.edge?.addEventListener('input', ()=>{ houseEdge=clamp(parseFloat(ui.edge.value)/100,0,.05); ui.edgeLabel.textContent=(houseEdge*100).toFixed(1); updateWinUI(); }); ui.rollBtn?.addEventListener('click', doRoll); let autoTimer=null; ui.autoBtn?.addEventListener('click', ()=>{ auto=!auto; ui.autoBtn.textContent=auto?'Stop Auto':'Auto Play'; if(auto){ const tick=async()=>{ if(!auto) return; if(canRoll()) await doRoll(); autoTimer=setTimeout(tick,320); }; tick(); } else if(autoTimer){ clearTimeout(autoTimer); autoTimer=null; } }); ui.newSeeds?.addEventListener('click', async ()=>{ serverSeed=randHex(32); clientSeed=randHex(8); nonce=0; await commitServerSeed(); syncInputs(); ui.history && (ui.history.innerHTML=''); resetMines(); }); ui.clientSeed?.addEventListener('input', ()=>{ clientSeed=ui.clientSeed.value; }); ui.nonce?.addEventListener('input', ()=>{ nonce=parseInt(ui.nonce.value||'0'); });
 
-    // ===== CASES DB =====
-    const CASES = [
-      {name:'Starter', price:5, items:[{n:'Sticker',e:'🔖',v:2,p:.6},{n:'Small Skin',e:'🎨',v:5,p:.3},{n:'Knife Charm',e:'🔪',v:10,p:.09},{n:'Gold Coin',e:'🪙',v:50,p:.01}]},
-      {name:'Budget', price:8, items:[{n:'Patch',e:'🩹',v:3,p:.55},{n:'Blue Skin',e:'🔵',v:8,p:.35},{n:'Purple Skin',e:'🟣',v:16,p:.09},{n:'Watch',e:'⌚️',v:80,p:.01}]},
-      {name:'Urban', price:12, items:[{n:'Graffiti',e:'🖌️',v:4,p:.55},{n:'Cap',e:'🧢',v:10,p:.3},{n:'Sneakers',e:'👟',v:25,p:.14},{n:'Designer Bag',e:'👜',v:120,p:.01}]},
-      {name:'Tech', price:15, items:[{n:'Cable',e:'🔌',v:5,p:.6},{n:'Mouse',e:'🖱️',v:12,p:.28},{n:'Keyboard',e:'⌨️',v:30,p:.11},{n:'GPU',e:'🧩',v:200,p:.01}]},
-      {name:'Forest', price:18, items:[{n:'Leaf',e:'🍃',v:6,p:.58},{n:'Camo',e:'🟫',v:14,p:.3},{n:'Binoculars',e:'🔭',v:35,p:.11},{n:'Hunting Knife',e:'🔪',v:250,p:.01}]},
-      {name:'Ocean', price:20, items:[{n:'Shell',e:'🐚',v:6,p:.55},{n:'Coral',e:'🪸',v:15,p:.32},{n:'Pearl',e:'⚪️',v:40,p:.12},{n:'Trident',e:'🔱',v:300,p:.01}]},
-      {name:'Hype', price:25, items:[{n:'Cap',e:'🧢',v:8,p:.55},{n:'Hoodie',e:'🧥',v:20,p:.3},{n:'Sneaker',e:'👟',v:60,p:.14},{n:'Limited Tee',e:'👕',v:400,p:.01}]},
-      {name:'Mythic', price:35, items:[{n:'Rune',e:'💠',v:10,p:.6},{n:'Relic',e:'🗿',v:25,p:.28},{n:'Artifact',e:'🏺',v:80,p:.11},{n:'Dragon Egg',e:'🐉',v:600,p:.01}]},
-      {name:'Neon', price:50, items:[{n:'Glow Band',e:'💡',v:15,p:.6},{n:'Neon Knife',e:'🔪',v:60,p:.28},{n:'Neon Rifle',e:'🔫',v:150,p:.11},{n:'Neon Crown',e:'👑',v:800,p:.01}]},
-      {name:'Legend', price:80, items:[{n:'Coin',e:'🪙',v:20,p:.6},{n:'Medal',e:'🏅',v:80,p:.28},{n:'Trophy',e:'🏆',v:300,p:.11},{n:'Crown',e:'👑',v:1500,p:.01}]},
-    ];
+      // ===== MINES =====
+      const BOARD_SIZE = 25; let m_roundActive=false; let m_revealedSafe=0; let m_minesCount=3; let m_wager=5; let m_mineSet=new Set(); let m_roundNonce=null;
+      const m_ui = { wager:$('m_wager'), mines:$('m_mines'), start:$('m_start'), cashout:$('m_cashout'), status:$('m_status'), board:$('board'), safe:$('m_safe'), mult:$('m_mult') };
+      function minesMultiplier(safeClicks, mines){ const total=25; const safe=total-mines; let mul=1; for(let i=0;i<safeClicks;i++){ const remainingTiles=total-i; const remainingSafe=safe-i; const p=remainingSafe/remainingTiles; mul*=1/p; } const edge=0.01; return Math.max(1, mul*(1-edge)); }
+      function updateMinesHUD(){ if(!m_ui.safe) return; m_ui.safe.textContent=m_revealedSafe; const mm=minesMultiplier(m_revealedSafe,m_minesCount); m_ui.mult.textContent=mm.toFixed(2)+'×'; m_ui.cashout.disabled=!m_roundActive||m_revealedSafe===0; }
+      async function generateMines(roundNonce){ m_mineSet.clear(); let i=0; while(m_mineSet.size<m_minesCount){ const h=await hmacSHA256Hex(serverSeed,`${clientSeed}:${roundNonce}:mines:${i}`); const val=(parseInt(h.slice(0,8),16)>>>0)%BOARD_SIZE; m_mineSet.add(val); i++; } }
+      function renderBoard(disabled=false){ if(!m_ui.board) return; m_ui.board.innerHTML=''; for(let i=0;i<BOARD_SIZE;i++){ const tile=document.createElement('button'); tile.className='tile'; tile.dataset.idx=i; if(disabled) tile.disabled=true; const label=document.createElement('div'); label.className='label'; label.textContent=''; tile.appendChild(label); tile.addEventListener('click',()=> onTile(i,tile)); m_ui.board.appendChild(tile);} }
+      async function startMines(){ if(m_roundActive) return; m_wager=clamp(parseFloat(m_ui.wager.value||'0'),1,balance); m_minesCount=clamp(parseInt(m_ui.mines.value||'3'),1,10); if(m_wager<=0||m_wager>balance){ m_ui.status.textContent='Invalid wager.'; return; } m_roundNonce=nonce; nonce+=1; await generateMines(m_roundNonce); renderBoard(false); m_revealedSafe=0; m_roundActive=true; m_ui.status.textContent=`Round started with ${m_minesCount} mines. Click tiles or Cash Out.`; updateMinesHUD(); syncInputs(); }
+      async function onTile(idx,el){ if(!m_roundActive) return; const isMine=m_mineSet.has(idx); el.classList.add('revealed'); if(isMine){ el.classList.add('mine'); el.querySelector('.label').textContent='💥'; balance=clamp(balance-m_wager,0,1_000_000_000); m_roundActive=false; revealAll(); m_ui.status.textContent='Boom! You hit a mine.'; syncInputs(); } else { el.classList.add('safe'); el.querySelector('.label').textContent='✓'; el.disabled=true; m_revealedSafe++; updateMinesHUD(); } }
+      function revealAll(){ Array.from(document.querySelectorAll('.tile')).forEach((el,i)=>{ el.disabled=true; if(m_mineSet.has(i)){ el.classList.add('revealed','mine'); el.querySelector('.label').textContent='💣'; } }); }
+      function cashOut(){ if(!m_roundActive||m_revealedSafe===0) return; const mul=minesMultiplier(m_revealedSafe,m_minesCount); const profit=Math.round(m_wager*(mul-1)); balance=clamp(balance+profit,0,1_000_000_000); m_roundActive=false; revealAll(); m_ui.status.textContent=`Cashed out at ${mul.toFixed(2)}× for +${fmtUSD(profit)}.`; syncTop(); }
+      m_ui.start?.addEventListener('click', startMines); m_ui.cashout?.addEventListener('click', cashOut);
+      function resetMines(){ m_roundActive=false; m_revealedSafe=0; renderBoard(true); updateMinesHUD(); if(m_ui.status) m_ui.status.textContent='Set wager and mines, then start.'; }
 
-    // ===== CASE BATTLES PAGE =====
-    const lineup=[]; // array of case indices (one per round)
-    const cb_cases = $('cb_cases');
-    function renderCases(){ cb_cases.innerHTML=''; CASES.forEach((c,i)=>{ const el=document.createElement('div'); el.className='case'; el.innerHTML=`<h4>${c.name} <span class="small muted">• ${fmtUSD(c.price)}</span></h4><div class="small muted">${c.items.map(it=>`${it.e} ${it.n} <span style='opacity:.8'>(${(it.p*100).toFixed(0)}%)</span>`).join(' · ')}</div><div style=\"display:flex; gap:8px; margin-top:8px\"><button class=\"btn\" data-add=\"${i}\">Add</button><button class=\"btn\" data-add5=\"${i}\">+5</button></div>`; cb_cases.appendChild(el); }); qsa('[data-add]').forEach(b=> b.onclick=()=> addToLineup(parseInt(b.dataset.add))); qsa('[data-add5]').forEach(b=> b.onclick=()=>{ for(let k=0;k<5;k++) addToLineup(parseInt(b.dataset.add5)); }); }
-    function addToLineup(idx){ lineup.push(idx); drawLineup(); }
-    function drawLineup(){ const root=$('cb_lineup'); root.innerHTML=''; let cost=0; lineup.forEach(i=>{ const c=CASES[i]; cost+=c.price; const chip=document.createElement('span'); chip.className='chip'; chip.textContent=`${c.name} (${fmtUSD(c.price)})`; root.appendChild(chip); }); root.insertAdjacentHTML('beforeend', `<span class=\"chip\" style=\"border-color:#2b3a58\">Rounds: ${lineup.length} • Total: ${fmtUSD(cost)}</span>`); $('cb_rounds').textContent=lineup.length; }
+      // ===== CASES DB =====
+      const CASES = [
+        {name:'Googly', icon:'😺', price:7, items:[{n:'Sticker',e:'🔖',v:2,p:.62},{n:'Small Skin',e:'🎨',v:5,p:.3},{n:'Gadget',e:'🔧',v:12,p:.07},{n:'Gold',e:'🪙',v:60,p:.01}]},
+        {name:'Cheap Eggs', icon:'🥚', price:8, items:[{n:'Shell',e:'🐚',v:3,p:.58},{n:'Blue Skin',e:'🔵',v:8,p:.34},{n:'Purple',e:'🟣',v:18,p:.07},{n:'Watch',e:'⌚️',v:100,p:.01}]},
+        {name:'Noob2Rich', icon:'💼', price:12, items:[{n:'Cap',e:'🧢',v:4,p:.56},{n:'Sneaker',e:'👟',v:12,p:.32},{n:'Keyboard',e:'⌨️',v:40,p:.11},{n:'GPU',e:'🧩',v:220,p:.01}]},
+        {name:'Victorian', icon:'🎩', price:21, items:[{n:'Cufflink',e:'🧷',v:6,p:.58},{n:'Canes',e:'🦯',v:18,p:.32},{n:'Top Hat',e:'🎩',v:60,p:.09},{n:'Pocket Watch',e:'⌚️',v:260,p:.01}]},
+        {name:'Late Dreams', icon:'🌙', price:25, items:[{n:'Patch',e:'🩹',v:8,p:.55},{n:'Hoodie',e:'🧥',v:20,p:.32},{n:'Headset',e:'🎧',v:80,p:.12},{n:'Laptop',e:'💻',v:400,p:.01}]},
+        {name:'Keep Dreaming', icon:'🪄', price:35, items:[{n:'Rune',e:'💠',v:10,p:.6},{n:'Relic',e:'🗿',v:25,p:.28},{n:'Artifact',e:'🏺',v:90,p:.11},{n:'Dragon Egg',e:'🐉',v:650,p:.01}]},
+        {name:'Tight Budget', icon:'💸', price:15, items:[{n:'Cable',e:'🔌',v:5,p:.6},{n:'Mouse',e:'🖱️',v:12,p:.28},{n:'Controller',e:'🎮',v:32,p:.11},{n:'VR Headset',e:'🕶️',v:220,p:.01}]},
+        {name:'Hopeful', icon:'🌿', price:18, items:[{n:'Leaf',e:'🍃',v:6,p:.58},{n:'Camo',e:'🟫',v:14,p:.3},{n:'Binoculars',e:'🔭',v:38,p:.11},{n:'Hunting Knife',e:'🔪',v:260,p:.01}]},
+        {name:'Neon', icon:'💡', price:50, items:[{n:'Glow Band',e:'💡',v:15,p:.6},{n:'Neon Knife',e:'🔪',v:60,p:.28},{n:'Neon Rifle',e:'🔫',v:150,p:.11},{n:'Neon Crown',e:'👑',v:820,p:.01}]},
+        {name:'Legend', icon:'👑', price:80, items:[{n:'Coin',e:'🪙',v:20,p:.6},{n:'Medal',e:'🏅',v:80,p:.28},{n:'Trophy',e:'🏆',v:300,p:.11},{n:'Crown',e:'👑',v:1500,p:.01}]},
+        {name:'Royal Fortune', icon:'💎', price:120, items:[{n:'Gem',e:'💎',v:40,p:.62},{n:'Bracelet',e:'📿',v:120,p:.28},{n:'Necklace',e:'📿',v:420,p:.09},{n:'Scepter',e:'🪄',v:2200,p:.01}]},
+        {name:'Omega', icon:'🧬', price:200, items:[{n:'Chip',e:'🧠',v:60,p:.62},{n:'Drone',e:'🛸',v:200,p:.28},{n:'Server',e:'🖥️',v:650,p:.09},{n:'AI Core',e:'🤖',v:4000,p:.01}]},
+        {name:'Galaxy', icon:'🌌', price:350, items:[{n:'Star',e:'⭐️',v:120,p:.62},{n:'Comet',e:'☄️',v:350,p:.28},{n:'Nebula',e:'🌀',v:1100,p:.09},{n:'Black Hole',e:'🕳️',v:8000,p:.01}]},
+        {name:'Infinity', icon:'♾️', price:500, items:[{n:'Bar',e:'🥇',v:160,p:.62},{n:'Ingot',e:'🥇',v:500,p:.28},{n:'Relic',e:'🏺',v:1600,p:.09},{n:'Singularity',e:'🌀',v:12000,p:.01}]},
+        {name:'10% AWP', icon:'🎯', price:100, items:[{n:'Miss',e:'❌',v:5,p:.90},{n:'Dragon Lore',e:'🐉',v:1000,p:.10}]},
+        {name:'5% Knife', icon:'🔪', price:200, items:[{n:'Miss',e:'❌',v:10,p:.95},{n:'Karambit',e:'🦈',v:3000,p:.05}]},
+        {name:'10% Rolex', icon:'⌚️', price:500, items:[{n:'Miss',e:'❌',v:25,p:.90},{n:'Rolex',e:'⌚️',v:5000,p:.10}]},
+        {name:'5% Lamborghini', icon:'🏎️', price:1000, items:[{n:'Miss',e:'❌',v:50,p:.95},{n:'Lambo',e:'🏎️',v:20000,p:.05}]},
+        {name:'0.5% Mansion', icon:'🏠', price:5000, items:[{n:'Miss',e:'❌',v:100,p:.995},{n:'Luxury Mansion',e:'🏠',v:1000000,p:.005}]}
 
-    $('cb_back').addEventListener('click', ()=> goto('home'));
+      ];
 
-    // Bots + slots
-    function parseTeams(mode){ if(mode==='1v1') return [1,1]; if(mode==='1v1v1') return [1,1,1]; if(mode==='1v1v1v1') return [1,1,1,1]; if(mode==='2v2') return [2,2]; if(mode==='2v2v2') return [2,2,2]; if(mode==='3v3') return [3,3]; return [2,2]; }
-    function makePlayers(teamSizes){ const teams=teamSizes.map((n,ti)=> Array.from({length:n}, (_,pi)=> ({name:(ti===0&&pi===0)?'You':`Bot ${ti+1}-${pi+1}`, team:ti})) ); return teams.flat(); }
-    function renderSlots(players){ const root=$('cb_slots'); root.innerHTML=''; players.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='slot'; d.id=`slot${idx}`; d.innerHTML=`<div class=\"name\">${p.name} — Team ${String.fromCharCode(65+p.team)}</div><div class=\"item small muted\">Waiting…</div>`; root.appendChild(d); }); }
+      // ===== CASE BATTLES PAGE =====
+      const cb_cases = $('cb_cases');
+      const cb_search = $('cb_search');
+      const cb_sort = $('cb_sort');
+      let filterText = ''; let sortMode = 'asc';
 
-    $('cb_call').addEventListener('click', ()=>{ const sizes=parseTeams($('cb_mode').value); const players=makePlayers(sizes); renderSlots(players); $('cb_result').textContent='Bots joined.'; });
-
-    $('cb_start').addEventListener('click', async ()=>{
-      const sizes=parseTeams($('cb_mode').value);
-      const players=makePlayers(sizes);
-      if($('cb_slots').children.length===0) renderSlots(players);
-      if(lineup.length===0){ $('cb_result').textContent='Add cases first.'; return; }
-      // cost handling: you pay your team share
-      const casesTotal = lineup.map(i=>CASES[i].price).reduce((a,b)=>a+b,0);
-      const totalPlayers = sizes.reduce((a,b)=>a+b,0); const yourShare = casesTotal * (sizes[0]/totalPlayers);
-      if(balance<yourShare){ $('cb_result').textContent='Not enough balance for your share.'; return; }
-      balance = clamp(balance-yourShare,0,1_000_000_000); syncTop();
-
-      const teamTotals = sizes.map(()=>0);
-      $('cb_result').textContent='Battle started'; $('totalA').textContent='$0.00'; $('totalB').textContent='$0.00';
-
-      for(let r=0;r<lineup.length;r++){
-        $('cb_round').textContent = String(r+1);
-        const c = CASES[lineup[r]]; // case for this round
-        const roundNonce = nonce; // PF: same nonce for the round, p-index disambiguates
-
-        // spin EVERYONE at once
-        const promises = players.map((player, p)=> (async ()=>{
-          const slot = $('slot'+p).querySelector('.item');
-          const jitter = 300 + (p%4)*80; // slight stagger but parallel
-          await spinAnimate(slot, c.items, 1500 + jitter);
-          const h = await hmacSHA256Hex(serverSeed, `${clientSeed}:${roundNonce}:cb:${lineup[r]}:r${r}:p${p}`);
-          const u = rollFromU32(u32FromHashTail(h));
-          const item = pickItem(c.items, u);
-          slot.innerHTML = `${item.e} <strong>${item.n}</strong> — <span>${fmtUSD(item.v)}</span>`;
-          // compute which team this player belongs to
-          let tIndex=0, count=0; for(let i=0;i<=p;i++){ count++; if(count>sizes[tIndex]){ tIndex++; count=1; } }
-          teamTotals[tIndex] += item.v;
-          $('totalA').textContent = fmtUSD(teamTotals[0]||0); $('totalB').textContent = fmtUSD(teamTotals[1]||0);
-          return item;
-        })());
-
-        await Promise.all(promises);
-        nonce += 1; // advance once per round
-        await delay(3000); // 3s delay before next case
+      function renderCases(){
+        cb_cases.innerHTML='';
+        const filtered = CASES.filter(c=> c.name.toLowerCase().includes(filterText.toLowerCase()));
+        const sorted = filtered.sort((a,b)=>{
+          if(sortMode==='name') return a.name.localeCompare(b.name);
+          if(sortMode==='desc') return b.price - a.price;
+          return a.price - b.price;
+        });
+        sorted.forEach((c)=>{
+          const idx = CASES.indexOf(c);
+          const el=document.createElement('div'); el.className='case';
+          el.innerHTML = `
+            <div class="case-hero">${c.icon||'🎁'}</div>
+            <h4>${c.name}</h4>
+            <div class="price">${fmtUSD(c.price)}</div>
+            <div class="add-row">
+              <button class="btn" data-add="${idx}">Add</button>
+              <button class="btn" data-add5="${idx}">+5</button>
+            </div>`;
+          cb_cases.appendChild(el);
+        });
+        document.querySelectorAll('[data-add]').forEach(b=> b.onclick=()=> addToLineup(parseInt(b.dataset.add)) );
+        document.querySelectorAll('[data-add5]').forEach(b=> b.onclick=()=> { for(let k=0;k<5;k++) addToLineup(parseInt(b.dataset.add5)); });
       }
 
-      const crazy = $('cb_crazy').checked;
-      const winnerIndex = crazy ? teamTotals.indexOf(Math.min(...teamTotals)) : teamTotals.indexOf(Math.max(...teamTotals));
-      const labels=['Team A','Team B','Team C','Team D'];
-      $('cb_result').textContent = `${labels[winnerIndex]} wins! (You paid ${fmtUSD(yourShare)}.)`;
+      cb_search.addEventListener('input', (e)=>{ filterText = e.target.value; renderCases(); });
+      cb_sort.addEventListener('change', (e)=>{ sortMode = e.target.value; renderCases(); });
 
-      // payout: if your team (Team A) wins, you receive the full Team A total
-      if(winnerIndex === 0){ balance = clamp(balance + (teamTotals[0]||0), 0, 1_000_000_000); syncTop(); }
+      const lineup=[]; // one case per round
+      function addToLineup(idx){ lineup.push(idx); drawLineup(); }
+      function drawLineup(){ const root=$('cb_lineup'); root.innerHTML=''; let cost=0; lineup.forEach(i=>{ const c=CASES[i]; cost+=c.price; const chip=document.createElement('span'); chip.className='chip'; chip.textContent=`${c.name} (${fmtUSD(c.price)})`; root.appendChild(chip); }); root.insertAdjacentHTML('beforeend', `<span class="chip" style="border-color:#2b3a58">Rounds: ${lineup.length} • Total: ${fmtUSD(cost)}</span>`); $('cb_rounds').textContent=lineup.length; }
 
-      lineup.length=0; drawLineup();
-    });
+      $('cb_back').addEventListener('click', ()=> goto('home'));
 
-    async function spinAnimate(el, items, ms){ const start=Date.now(); let i=0; return new Promise(res=>{ const iv=setInterval(()=>{ const it=items[i%items.length]; el.textContent = `${it.e} ${it.n}`; i++; if(Date.now()-start>ms){ clearInterval(iv); res(); } }, 60); }); }
-    function pickItem(items, u){ let acc=0; for(const it of items){ acc+=it.p; if(u<=acc) return it; } return items[items.length-1]; }
+      // Bots + slots
+      function parseTeams(mode){ if(mode==='1v1') return [1,1]; if(mode==='1v1v1') return [1,1,1]; if(mode==='1v1v1v1') return [1,1,1,1]; if(mode==='2v2') return [2,2]; if(mode==='2v2v2') return [2,2,2]; if(mode==='3v3') return [3,3]; return [2,2]; }
+      function makePlayers(teamSizes){ const teams=teamSizes.map((n,ti)=> Array.from({length:n}, (_,pi)=> ({name:(ti===0&&pi===0)?'You':`Bot ${ti+1}-${pi+1}`, team:ti})) ); return teams.flat(); }
+      function renderSlots(players){ const root=$('cb_slots'); root.innerHTML=''; players.forEach((p,idx)=>{ const d=document.createElement('div'); d.className='slot'; d.id=`slot${idx}`; d.innerHTML=`<div class="name">${p.name} — Team ${String.fromCharCode(65+p.team)}</div><div class="item small muted">Waiting…</div>`; root.appendChild(d); }); }
 
-    // ===== Init =====
-    (async ()=>{ await commitServerSeed(); renderCases(); syncInputs(); resetMines(); applyRoute(); })();
+      function renderTotals(teamTotals, teamCount){ const root=$('totals'); const labels=['A','B','C','D','E','F']; const n=teamCount||teamTotals.length; root.innerHTML = 'Totals — ' + Array.from({length:n}, (_,i)=> `${labels[i]}: <strong>${fmtUSD(teamTotals[i]||0)}</strong>`).join(' • '); }
+
+      $('cb_call').addEventListener('click', ()=>{ const sizes=parseTeams($('cb_mode').value); const players=makePlayers(sizes); renderSlots(players); $('cb_result').textContent='Bots joined.'; renderTotals(sizes.map(()=>0), sizes.length); });
+
+      $('cb_start').addEventListener('click', async ()=>{
+        const sizes=parseTeams($('cb_mode').value);
+        const players=makePlayers(sizes);
+        if($('cb_slots').children.length===0) renderSlots(players);
+        if(lineup.length===0){ $('cb_result').textContent='Add cases first.'; return; }
+        // cost handling: you pay your team share
+        // Full price per user, regardless of team size
+        const yourCost = lineup.map(i=>CASES[i].price).reduce((a,b)=>a+b,0);
+        if (balance < yourCost) { $('cb_result').textContent = 'Not enough balance for this battle.'; return; }
+        balance = clamp(balance - yourCost, 0, 1_000_000_000);
+        syncTop();
+
+
+        const teamTotals = sizes.map(()=>0);
+        $('cb_result').textContent='Battle started'; renderTotals(teamTotals, sizes.length);
+
+        for(let r=0;r<lineup.length;r++){
+          $('cb_round').textContent = String(r+1);
+          const c = CASES[lineup[r]]; // case for this round
+          const roundNonce = nonce; // PF: same nonce for the round, p-index disambiguates
+
+          // spin EVERYONE at once
+          const promises = players.map((player, p)=> (async ()=>{
+            const slot = $('slot'+p).querySelector('.item');
+            const jitter = 300 + (p%4)*80; // slight stagger but parallel
+            await spinAnimate(slot, c.items, 1500 + jitter);
+            const h = await hmacSHA256Hex(serverSeed, `${clientSeed}:${roundNonce}:cb:${lineup[r]}:r${r}:p${p}`);
+            const u = rollFromU32(u32FromHashTail(h));
+            const item = pickItem(c.items, u);
+            slot.innerHTML = `${item.e} <strong>${item.n}</strong> — <span>${fmtUSD(item.v)}</span>`;
+            // compute which team this player belongs to
+            let tIndex=0, count=0; for(let i=0;i<=p;i++){ count++; if(count>sizes[tIndex]){ tIndex++; count=1; } }
+            teamTotals[tIndex] += item.v;
+            renderTotals(teamTotals, sizes.length);
+            return item;
+          })());
+
+          await Promise.all(promises);
+          nonce += 1; // advance once per round
+          await delay(3000); // 3s delay before next case
+        }
+
+        const crazy = $('cb_crazy').checked;
+        const winnerIndex = crazy ? teamTotals.indexOf(Math.min(...teamTotals)) : teamTotals.indexOf(Math.max(...teamTotals));
+        const labels=['Team A','Team B','Team C','Team D'];
+        $('cb_result').textContent = `${labels[winnerIndex]} wins! (You paid ${fmtUSD(yourCost)}.)`;
+
+
+        // payout: if your team (Team A) wins, you receive the full Team A total
+        if(winnerIndex === 0){ balance = clamp(balance + (teamTotals[0]||0), 0, 1_000_000_000); syncTop(); }
+
+        lineup.length=0; drawLineup();
+      });
+
+      async function spinAnimate(el, items, ms){ const start=Date.now(); let i=0; return new Promise(res=>{ const iv=setInterval(()=>{ const it=items[i%items.length]; el.textContent = `${it.e} ${it.n}`; i++; if(Date.now()-start>ms){ clearInterval(iv); res(); } }, 60); }); }
+      function pickItem(items, u){ let acc=0; for(const it of items){ acc+=it.p; if(u<=acc) return it; } return items[items.length-1]; }
+
+      // ===== Init =====
+      await commitServerSeed();
+      renderCases();
+      syncInputs();
+      resetMines();
+      applyRoute();
+    } catch(e){ showError(e); }
+    })();
   </script>
 </body>
-
 </html>
