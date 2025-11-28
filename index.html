@@ -2,74 +2,84 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Key Generator</title>
+  <title>License Generator</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    button { padding: 10px 18px; font-size: 16px; cursor: pointer; }
-    #keyOutput { margin-top: 20px; font-size: 18px; font-weight: bold; }
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 60px auto;
+      text-align: center;
+      background: #111;
+      color: #fff;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      border: none;
+      background-color: #4CAF50;
+      color: black;
+    }
+
+    #license {
+      margin-top: 20px;
+      font-size: 22px;
+      word-break: break-all;
+      color: #00ffcc;
+    }
+
+    #status {
+      margin-top: 10px;
+      color: #aaa;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
-  <h1>Generate License Key</h1>
 
-  <button id="genBtn">Generate New Key</button>
-  <p id="keyOutput">Click the button to generate a key.</p>
+  <h1>License Key Generator</h1>
+  <p>Click to generate your license key.</p>
+
+  <button onclick="generateLicense()">Generate</button>
+
+  <div id="license"></div>
+  <div id="status"></div>
 
   <script>
-    let CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let SALT = "MY_PUBLIC_SALT_123"; // fallback if config load fails
+    const BACKEND_URL = "https://turties.ironspidermax.workers.dev";  // <-- YOUR WORKER URL
 
-    // Load config.json from your GitHub Pages
-    fetch("config.json")
-      .then(res => res.json())
-      .then(cfg => {
-        if (cfg.charset) CHARSET = cfg.charset;
-        if (cfg.salt) SALT = cfg.salt;
-        console.log("Loaded config:", cfg);
-      })
-      .catch(err => console.warn("Could not load config.json, using defaults", err));
+    async function generateLicense() {
+      const status = document.getElementById("status");
+      const license = document.getElementById("license");
 
-    function randomChar() {
-      return CHARSET[Math.floor(Math.random() * CHARSET.length)];
-    }
+      status.textContent = "Contacting license server...";
+      license.textContent = "";
 
-    function generatePayload(len) {
-      let s = "";
-      for (let i = 0; i < len; i++) {
-        s += randomChar();
+      try {
+        const response = await fetch(BACKEND_URL + "/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: "{}"
+        });
+
+        if (!response.ok) {
+          status.textContent = "Server returned error: " + response.status;
+          return;
+        }
+
+        const data = await response.json();
+        license.textContent = data.key;
+        status.textContent = "Copy this key into your program.";
+      } catch (error) {
+        console.error(error);
+        status.textContent = "Could not reach license server.";
       }
-      return s;
     }
-
-    function checksum(payload) {
-      let sum = 0;
-      for (let i = 0; i < payload.length; i++) {
-        const ch = payload[i];
-        const idx = CHARSET.indexOf(ch);
-        const saltChar = SALT[i % SALT.length];
-        const saltIdx = CHARSET.indexOf(saltChar.toUpperCase());
-        if (idx === -1 || saltIdx === -1) return null;
-        sum += idx + saltIdx;
-      }
-      return String(sum % 100).padStart(2, "0");
-    }
-
-    function formatKey(payload, check) {
-      const parts = payload.match(/.{1,4}/g); // 12 chars -> 3 groups
-      return parts.join("-") + "-" + check;  // XXXX-XXXX-XXXX-CC
-    }
-
-    function generateKey() {
-      const payload = generatePayload(12);  // 12 random chars
-      const check = checksum(payload);      // 2-digit checksum
-      return formatKey(payload, check);
-    }
-
-    document.getElementById("genBtn").addEventListener("click", () => {
-      const key = generateKey();
-      document.getElementById("keyOutput").textContent = "Generated key: " + key;
-      console.log("Generated key:", key);
-    });
   </script>
+
 </body>
 </html>
