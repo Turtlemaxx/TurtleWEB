@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Turties.xyz</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: monospace;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        .parent-dir {
+            margin-bottom: 20px;
+            padding: 5px 0;
+        }
+
+        .parent-dir a {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .parent-dir a:hover {
+            text-decoration: underline;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #111;
+        }
+
+        th {
+            text-align: left;
+            padding: 8px 10px;
+            background-color: #222;
+            border-bottom: 2px solid #444;
+            font-weight: bold;
+        }
+
+        td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #222;
+        }
+
+        tr:hover {
+            background-color: #1a1a1a;
+        }
+
+        a {
+            color: #4da6ff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .size {
+            text-align: right;
+        }
+
+        .loading {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Turties.xyz</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th class="size">Größe</th>
+                <th>Änderungsdatum</th>
+            </tr>
+        </thead>
+        <tbody id="fileList">
+            <tr>
+                <td>📄 <a href="cv_philipp_modern (2).html">cv_philipp_modern (2).html</a></td>
+                <td class="size loading">Lade...</td>
+                <td class="loading">Lade...</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <script>
+        // Funktion zur Formatierung der Dateigröße
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Funktion zur Formatierung des Datums
+        function formatDate(date) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year} ${hours}:${minutes}`;
+        }
+
+        // Dateiinformationen abrufen
+        async function getFileInfo(url, row) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                
+                if (response.ok) {
+                    // Dateigröße
+                    const size = response.headers.get('Content-Length');
+                    const sizeCell = row.cells[1];
+                    if (size) {
+                        sizeCell.textContent = formatFileSize(parseInt(size));
+                        sizeCell.classList.remove('loading');
+                    } else {
+                        sizeCell.textContent = 'Unbekannt';
+                        sizeCell.classList.remove('loading');
+                    }
+
+                    // Änderungsdatum
+                    const lastModified = response.headers.get('Last-Modified');
+                    const dateCell = row.cells[2];
+                    if (lastModified) {
+                        const date = new Date(lastModified);
+                        dateCell.textContent = formatDate(date);
+                        dateCell.classList.remove('loading');
+                    } else {
+                        dateCell.textContent = 'Unbekannt';
+                        dateCell.classList.remove('loading');
+                    }
+                }
+            } catch (error) {
+                console.error('Fehler beim Abrufen der Dateiinformationen:', error);
+                row.cells[1].textContent = 'Fehler';
+                row.cells[2].textContent = 'Fehler';
+                row.cells[1].classList.remove('loading');
+                row.cells[2].classList.remove('loading');
+            }
+        }
+
+        // Alle Dateien durchgehen und Informationen abrufen
+        window.addEventListener('DOMContentLoaded', () => {
+            const rows = document.querySelectorAll('#fileList tr');
+            rows.forEach(row => {
+                const link = row.querySelector('a');
+                if (link) {
+                    getFileInfo(link.href, row);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
