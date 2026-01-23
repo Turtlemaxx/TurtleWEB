@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epic Pixel RPG - Multiplayer</title>
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: white;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+#container {
+  max-width: 900px;
+  width: 100%;
+  padding: 20px;
+}
+#hud {
+  background: rgba(0,0,0,0.7);
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 2px solid #4ecdc4;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.stat-label {
+  font-size: 12px;
+  color: #4ecdc4;
+  font-weight: bold;
+}
+.stat-bar {
+  width: 150px;
+  height: 20px;
+  background: #333;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #666;
+}
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+  transition: width 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+.xp-fill {
+  background: linear-gradient(90deg, #4ecdc4, #44a3d5);
+}
+.info-text {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ffd93d;
+}
+#skills {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.skill-btn {
+  width: 70px;
+  height: 70px;
+  border: 3px solid #4ecdc4;
+  background: rgba(0,0,0,0.8);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 10px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+}
+.skill-btn.targeted {
+  border-color: #ffd93d;
+  box-shadow: 0 0 20px #ffd93d;
+}
+.skill-btn.new-skill {
+  animation: newSkillGlow 2s infinite;
+}
+@keyframes newSkillGlow {
+  0%, 100% { border-color: #4ecdc4; box-shadow: 0 0 10px #4ecdc4; }
+  50% { border-color: #ffd93d; box-shadow: 0 0 20px #ffd93d; }
+}
+.skill-btn:hover:not(.cooling) {
+  transform: scale(1.1);
+  border-color: #ffd93d;
+  box-shadow: 0 0 20px rgba(78, 205, 196, 0.5);
+}
+.skill-btn:active:not(.cooling) {
+  transform: scale(0.95);
+}
+.skill-btn.cooling {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #666;
+}
+.skill-name {
+  font-size: 9px;
+  margin-top: 2px;
+  color: #4ecdc4;
+}
+.cooldown-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255,0,0,0.6);
+  transition: height 0.1s linear;
+  border-radius: 0 0 7px 7px;
+}
+#passives {
+  background: rgba(0,0,0,0.7);
+  padding: 10px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  border: 2px solid #ffd93d;
+  min-height: 50px;
+}
+#passives h3 {
+  font-size: 14px;
+  color: #ffd93d;
+  margin-bottom: 5px;
+}
+.passive-item {
+  display: inline-block;
+  background: rgba(255, 217, 61, 0.2);
+  padding: 5px 10px;
+  border-radius: 5px;
+  margin: 2px;
+  font-size: 12px;
+  border: 1px solid #ffd93d;
+}
+#game {
+  position: relative;
+  width: 100%;
+  height: 500px;
+  background: linear-gradient(180deg, #2d3561 0%, #1a1d3d 100%);
+  border: 4px solid #4ecdc4;
+  border-radius: 15px;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  cursor: crosshair;
+}
+#game.targeting {
+  cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="12" fill="none" stroke="red" stroke-width="2"/><line x1="16" y1="4" x2="16" y2="28" stroke="red" stroke-width="2"/><line x1="4" y1="16" x2="28" y2="16" stroke="red" stroke-width="2"/></svg>') 16 16, crosshair;
+}
+.character, .enemy, .other-player {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  transition: transform 0.1s;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+}
+.character {
+  z-index: 10;
+}
+.other-player {
+  z-index: 9;
+  opacity: 0.8;
+}
+.enemy {
+  z-index: 5;
+}
+.player-name {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #4ecdc4;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 1px 1px 2px #000;
+}
+.health-bar {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 45px;
+  height: 5px;
+  background: #333;
+  border-radius: 3px;
+  border: 1px solid #000;
+}
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+.damage-text {
+  position: absolute;
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 20px;
+  animation: damageFloat 1s forwards;
+  pointer-events: none;
+  text-shadow: 2px 2px 4px #000;
+  z-index: 100;
+}
+@keyframes damageFloat {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-50px); }
+}
+.skill-effect {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  animation: skillPulse 0.5s forwards;
+  pointer-events: none;
+  z-index: 50;
+}
+@keyframes skillPulse {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+.range-indicator {
+  position: absolute;
+  border: 2px dashed rgba(78, 205, 196, 0.5);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.3s;
+}
+.target-line {
+  position: absolute;
+  height: 2px;
+  background: rgba(255, 215, 0, 0.6);
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 8;
+}
+#class-select {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.95);
+  padding: 40px;
+  border-radius: 20px;
+  border: 4px solid #4ecdc4;
+  z-index: 1000;
+  text-align: center;
+  box-shadow: 0 10px 50px rgba(0,0,0,0.8);
+}
+#class-select h2 {
+  margin-bottom: 20px;
+  color: #ffd93d;
+  font-size: 28px;
+}
+#class-select input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 20px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: 2px solid #4ecdc4;
+  background: rgba(0,0,0,0.5);
+  color: white;
+}
+.class-option {
+  display: inline-block;
+  margin: 10px;
+  padding: 20px 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 3px solid #4ecdc4;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 18px;
+  font-weight: bold;
+}
+.class-option:hover {
+  transform: scale(1.1);
+  box-shadow: 0 5px 20px rgba(78, 205, 196, 0.5);
+}
+#controls {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 12px;
+  color: #4ecdc4;
+  background: rgba(0,0,0,0.5);
+  padding: 10px;
+  border-radius: 10px;
+}
+.game-over, .level-up-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.95);
+  padding: 40px;
+  border-radius: 20px;
+  border: 4px solid #ff6b6b;
+  z-index: 1000;
+  text-align: center;
+}
+.level-up-modal {
+  border-color: #ffd93d;
+  max-width: 500px;
+}
+.level-up-modal h2 {
+  color: #ffd93d;
+  font-size: 32px;
+  margin-bottom: 20px;
+}
+.ability-choice {
+  background: rgba(78, 205, 196, 0.2);
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 10px;
+  border: 2px solid #4ecdc4;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.ability-choice:hover {
+  background: rgba(78, 205, 196, 0.4);
+  transform: scale(1.05);
+}
+.ability-choice h3 {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+.ability-choice p {
+  font-size: 14px;
+  color: #aaa;
+}
+.game-over h2 {
+  color: #ff6b6b;
+  font-size: 36px;
+  margin-bottom: 20px;
+}
+.restart-btn {
+  margin-top: 20px;
+  padding: 15px 30px;
+  background: #4ecdc4;
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.restart-btn:hover {
+  background: #44a3d5;
+  transform: scale(1.1);
+}
+#player-list {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(0,0,0,0.8);
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid #4ecdc4;
+  font-size: 12px;
+  max-width: 200px;
+}
+#player-list h4 {
+  color: #ffd93d;
+  margin-bottom: 5px;
+}
+.player-entry {
+  padding: 3px 0;
+  color: #4ecdc4;
+}
+</style>
+</head>
+<body>
+<div id="container">
+  <div id="hud">
+    <div class="stat">
+      <div class="stat-label">HP</div>
+      <div class="stat-bar">
+        <div class="stat-fill" id="hp-fill">100/100</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">XP</div>
+      <div class="stat-bar">
+        <div class="stat-fill xp-fill" id="xp-fill">0/100</div>
+      </div>
+    </div>
+    <div class="info-text">Level: <span id="level">1</span></div>
+    <div class="info-text">Klasse: <span id="class-name">-</span></div>
+  </div>
+  <div id="passives">
+    <h3>🌟 Passive Fähigkeiten</h3>
+    <div id="passive-list">Keine</div>
+  </div>
+  <div id="skills"></div>
+  <div id="game">
+    <div id="player-list">
+      <h4>🎮 Spieler Online</h4>
+      <div id="players-online"></div>
+    </div>
+  </div>
+  <div id="controls">
+    Steuerung: WASD oder Pfeiltasten | Skills: 1-5 oder Klicken (manche Fähigkeiten: mit Maus zielen!) | ESC: Reset
+  </div>
+</div>
+<div id="class-select">
+  <h2>🎮 Willkommen!</h2>
+  <input type="text" id="player-name-input" placeholder="Dein Name" maxlength="15">
+  <div>
+    <div class="class-option" onclick="selectClass('Magier')">🧙‍♂️ Magier</div>
+    <div class="class-option" onclick="selectClass('Jäger')">🏹 Jäger</div>
+    <div class="class-option" onclick="selectClass('Krieger')">⚔️ Krieger</div>
+  </div>
+</div>
+<script>
+const game = document.getElementById("game");
+const hpFill = document.getElementById("hp-fill");
+const xpFill = document.getElementById("xp-fill");
+const levelEl = document.getElementById("level");
+const classNameEl = document.getElementById("class-name");
+const skillsDiv = document.getElementById("skills");
+const classSelect = document.getElementById("class-select");
+const passiveList = document.getElementById("passive-list");
+const playersOnline = document.getElementById("players-online");
+const playerNameInput = document.getElementById("player-name-input");
+
+let player = {
+  id: 'player_' + Math.random().toString(36).substr(2, 9),
+  name: '',
+  x: 400,
+  y: 250,
+  hp: 100,
+  maxHp: 100,
+  xp: 0,
+  level: 1,
+  class: null,
+  abilities: [],
+  passives: [],
+  cooldowns: {},
+  el: null,
+  skillRange: 150
+};
+
+let enemies = [];
+let otherPlayers = {};
+let enemyCount = 3;
+let gameLoop = null;
+let keys = {};
+let rangeIndicator = null;
+let targetingSkill = null;
+let mouseX = 0;
+let mouseY = 0;
+let targetLine = null;
+
+const baseSkills = {
+  Magier: [
+    {name:"Feuerball", dmg:35, cd:2000, emoji:"🔥", color:"#ff6b35", targeted: true},
+    {name:"Frostblitz", dmg:25, cd:1500, emoji:"❄️", color:"#4ecdc4", targeted: true},
+    {name:"Teleport", dmg:0, cd:5000, emoji:"✨", color:"#ffd93d", special:"teleport", targeted: true}
+  ],
+  Jäger: [
+    {name:"Schuss", dmg:30, cd:1500, emoji:"🏹", color:"#95e1d3", targeted: true},
+    {name:"Falle", dmg:20, cd:3000, emoji:"🕸️", color:"#f38181", targeted: true},
+    {name:"Sprint", dmg:0, cd:4000, emoji:"💨", color:"#ffd93d", special:"speed"}
+  ],
+  Krieger: [
+    {name:"Schwertschlag", dmg:40, cd:2000, emoji:"⚔️", color:"#ff6b6b"},
+    {name:"Schildblock", dmg:0, cd:4000, emoji:"🛡️", color:"#4ecdc4", special:"shield"},
+    {name:"Kriegsschrei", dmg:15, cd:6000, emoji:"💢", color:"#ffd93d", special:"aoe"}
+  ]
+};
+
+const advancedSkills = {
+  Magier: [
+    {name:"Meteorregen", dmg:50, cd:8000, emoji:"☄️", color:"#ff4500", special:"meteor", level:3, targeted: true},
+    {name:"Zeitverzerrung", dmg:0, cd:10000, emoji:"⏰", color:"#9370db", special:"slow", level:5},
+    {name:"Arkaner Sturm", dmg:70, cd:12000, emoji:"🌪️", color:"#4b0082", special:"storm", level:7}
+  ],
+  Jäger: [
+    {name:"Giftpfeil", dmg:25, cd:3000, emoji:"🦠", color:"#32cd32", special:"poison", level:3, targeted: true},
+    {name:"Adlerauge", dmg:0, cd:15000, emoji:"🦅", color:"#ffd700", special:"vision", level:5},
+    {name:"Bombardement", dmg:60, cd:10000, emoji:"💣", color:"#ff6347", special:"bomb", level:7, targeted: true}
+  ],
+  Krieger: [
+    {name:"Wirbelwind", dmg:45, cd:6000, emoji:"🌀", color:"#00ced1", special:"spin", level:3},
+    {name:"Unaufhaltbar", dmg:0, cd:20000, emoji:"💪", color:"#ff8c00", special:"rage", level:5},
+    {name:"Donnerschlag", dmg:80, cd:15000, emoji:"⚡", color:"#ffff00", special:"thunder", level:7, targeted: true}
+  ]
+};
+
+const passiveAbilities = {
+  Magier: [
+    {name:"Mana-Regeneration", desc:"Cooldowns 20% schneller", level:2, type:"cooldown"},
+    {name:"Magische Rüstung", desc:"-30% Schaden von Gegnern", level:4, type:"defense"},
+    {name:"Elementar-Meister", desc:"+50% Skill-Schaden", level:6, type:"damage"},
+    {name:"Arkanes Echo", desc:"20% Chance auf doppelten Schaden", level:8, type:"crit"}
+  ],
+  Jäger: [
+    {name:"Schnelle Reflexe", desc:"+50% Bewegungsgeschwindigkeit", level:2, type:"speed"},
+    {name:"Präzision", desc:"+40% Skill-Schaden", level:4, type:"damage"},
+    {name:"Überlebensinstinkt", desc:"Regeneriere 2 HP/Sekunde", level:6, type:"regen"},
+    {name:"Kritischer Treffer", desc:"30% Chance auf Insta-Kill", level:8, type:"instakill"}
+  ],
+  Krieger: [
+    {name:"Eiserne Haut", desc:"-40% Schaden von Gegnern", level:2, type:"defense"},
+    {name:"Kampfrausch", desc:"+60% Skill-Schaden", level:4, type:"damage"},
+    {name:"Zweite Chance", desc:"Einmal pro Leben bei 1 HP überleben", level:6, type:"revive"},
+    {name:"Titanen-Stärke", desc:"Doppelte HP-Regeneration", level:8, type:"regen"}
+  ]
+};
+
+const classEmojis = {
+  Magier: "🧙‍♂️",
+  Jäger: "🏹",
+  Krieger: "⚔️"
+};
+
+game.addEventListener('mousemove', (e) => {
+  const rect = game.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+  mouseY = e.clientY - rect.top;
+  
+  if (targetingSkill && targetLine) {
+    updateTargetLine();
+  }
+});
+
+game.addEventListener('click', (e) => {
+  if (targetingSkill) {
+    executeTargetedSkill(targetingSkill.skill, targetingSkill.btn, mouseX, mouseY);
+    cancelTargeting();
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && targetingSkill) {
+    cancelTargeting();
+  }
+});
+
+function updateTargetLine() {
+  if (!targetLine) return;
+  
+  const dx = mouseX - player.x - 20;
+  const dy = mouseY - player.y - 20;
+  const angle = Math.atan2(dy, dx);
+  const length = Math.sqrt(dx*dx + dy*dy);
+  
+  targetLine.style.left = (player.x + 20) + 'px';
+  targetLine.style.top = (player.y + 20) + 'px';
+  targetLine.style.width = length + 'px';
+  targetLine.style.transform = `rotate(${angle}rad)`;
+}
+
+function cancelTargeting() {
+  if (targetLine && targetLine.parentNode) {
+    game.removeChild(targetLine);
+  }
+  targetLine = null;
+  targetingSkill = null;
+  game.classList.remove('targeting');
+  
+  document.querySelectorAll('.skill-btn').forEach(btn => {
+    btn.classList.remove('targeted');
+  });
+}
+
+function selectClass(className) {
+  const name = playerNameInput.value.trim() || 'Spieler';
+  player.name = name;
+  player.class = className;
+  player.abilities = [...baseSkills[className]];
+  classNameEl.textContent = className;
+  classSelect.style.display = "none";
+  setupSkills();
+  initGame();
+  broadcastPlayerState();
+}
+
+function setupSkills() {
+  skillsDiv.innerHTML = "";
+  player.abilities.forEach((skill, idx) => {
+    const btn = document.createElement("div");
+    btn.classList.add("skill-btn");
+    if (skill.isNew) {
+      btn.classList.add("new-skill");
+      setTimeout(() => btn.classList.remove("new-skill"), 3000);
+    }
+    btn.innerHTML = `${skill.emoji}<div class="skill-name">${skill.name}</div><div class="cooldown-overlay"></div>`;
+    btn.dataset.index = idx;
+    btn.onclick = () => {
+      if (skill.targeted) {
+        startTargeting(skill, btn);
+      } else {
+        useSkill(skill, btn);
+      }
+    };
+    btn.onmouseenter = () => showRangeIndicator(skill);
+    btn.onmouseleave = () => hideRangeIndicator();
+    skillsDiv.appendChild(btn);
+  });
+}
+
+function startTargeting(skill, btn) {
+  if (player.cooldowns[skill.name]) return;
+  
+  cancelTargeting();
+  
+  targetingSkill = {skill, btn};
+  game.classList.add('targeting');
+  btn.classList.add('targeted');
+  
+  targetLine = document.createElement('div');
+  targetLine.classList.add('target-line');
+  game.appendChild(targetLine);
+  updateTargetLine();
+}
+
+function executeTargetedSkill(skill, btn, targetX, targetY) {
+  const overlay = btn.querySelector(".cooldown-overlay");
+  btn.classList.add("cooling");
+  
+  const dmgBoost = getPassiveBonus("damage");
+  const finalDmg = Math.floor(skill.dmg * dmgBoost);
+  
+  if (skill.special === "teleport") {
+    player.x = Math.max(0, Math.min(game.clientWidth - 40, targetX - 20));
+    player.y = Math.max(0, Math.min(game.clientHeight - 40, targetY - 20));
+    updatePlayerPos();
+    createSkillEffect(player.x, player.y, skill.color);
+    broadcastPlayerState();
+  } else if (skill.special === "falle" || skill.name === "Falle") {
+    createSkillEffect(targetX, targetY, skill.color);
+    setTimeout(() => {
+      enemies.forEach(e => {
+        if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 60) {
+          damageEnemy(e, finalDmg);
+        }
+      });
+    }, 200);
+  } else if (skill.special === "meteor") {
+    createSkillEffect(targetX, targetY, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 100) {
+        damageEnemy(e, finalDmg);
+      }
+    });
+  } else if (skill.special === "bomb") {
+    createSkillEffect(targetX, targetY, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 120) {
+        damageEnemy(e, finalDmg);
+      }
+    });
+  } else if (skill.special === "thunder") {
+    createSkillEffect(targetX, targetY, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 80) {
+        damageEnemy(e, finalDmg);
+      }
+    });
+  } else {
+    let hit = false;
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 50) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+        hit = true;
+      }
+    });
+    if (!hit) createSkillEffect(targetX, targetY, "#666");
+  }
+  
+  startCooldown(skill, btn, overlay);
+}
+
+function getDistanceToPoint(obj, x, y) {
+  const dx = (obj.x + 20) - x;
+  const dy = (obj.y + 20) - y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function showRangeIndicator(skill) {
+  if (!rangeIndicator) {
+    rangeIndicator = document.createElement("div");
+    rangeIndicator.classList.add("range-indicator");
+    game.appendChild(rangeIndicator);
+  }
+  const range = skill.special === "aoe" || skill.special === "meteor" || skill.special === "storm" ? player.skillRange * 2 : player.skillRange;
+  rangeIndicator.style.width = range * 2 + "px";
+  rangeIndicator.style.height = range * 2 + "px";
+  rangeIndicator.style.left = (player.x - range + 20) + "px";
+  rangeIndicator.style.top = (player.y - range + 20) + "px";
+  rangeIndicator.style.display = "block";
+}
+
+function hideRangeIndicator() {
+  if (rangeIndicator) rangeIndicator.style.display = "none";
+}
+
+function useSkill(skill, btn) {
+  if (player.cooldowns[skill.name]) return;
+  
+  const overlay = btn.querySelector(".cooldown-overlay");
+  btn.classList.add("cooling");
+  
+  const dmgBoost = getPassiveBonus("damage");
+  const finalDmg = Math.floor(skill.dmg * dmgBoost);
+  
+  if (skill.special === "speed") {
+    player.speedBoost = true;
+    setTimeout(() => player.speedBoost = false, 3000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "shield") {
+    player.shielded = true;
+    setTimeout(() => player.shielded = false, 4000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "aoe" || skill.special === "storm") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange * 2) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "slow") {
+    enemies.forEach(e => {
+      if (e.hp > 0) {
+        e.slowed = true;
+        setTimeout(() => e.slowed = false, 5000);
+      }
+    });
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "spin") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "rage") {
+    player.raging = true;
+    setTimeout(() => player.raging = false, 10000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "poison") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange) {
+        damageEnemy(e, finalDmg);
+        e.poisoned = {dmg: 5, ticks: 5};
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else {
+    let hit = false;
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+        hit = true;
+      }
+    });
+    if (!hit) createSkillEffect(player.x, player.y, "#666");
+  }
+  
+  startCooldown(skill, btn, overlay);
+}
+
+function startCooldown(skill, btn, overlay) {
+  player.cooldowns[skill.name] = true;
+  const cdReduction = getPassiveBonus("cooldown");
+  let remaining = Math.floor(skill.cd * cdReduction);
+  overlay.style.height = "100%";
+  
+  const cdInterval = setInterval(() => {
+    remaining -= 100;
+    overlay.style.height = (remaining / (skill.cd * cdReduction) * 100) + "%";
+    if (remaining <= 0) {
+      clearInterval(cdInterval);
+      btn.classList.remove("cooling");
+      overlay.style.height = "0%";
+      player.cooldowns[skill.name] = false;
+    }
+  }, 100);
+}
+
+function getPassiveBonus(type) {
+  let bonus = 1;
+  player.passives.forEach(p => {
+    if (p.type === "damage" && type === "damage") bonus += 0.5;
+    if (p.type === "cooldown" && type === "cooldown") bonus = 0.8;
+  });
+  return bonus;
+}
+
+function createSkillEffect(x, y, color) {
+  const effect = document.createElement("div");
+  effect.classList.add("skill-effect");
+  effect.style.left = x + "px";
+  effect.style.top = y + "px";
+  effect.style.background = `radial-gradient(circle, ${color} 0%, transparent 70%)`;
+  game.appendChild(effect);
+  setTimeout(() => {
+    if (effect.parentNode) game.removeChild(effect);
+  }, 500);
+}
+
+function damageEnemy(enemy, damage) {
+  const hasCrit = player.passives.find(p => p.type === "crit");
+  const hasInstakill = player.passives.find(p => p.type === "instakill");
+  
+  if (hasCrit && Math.random() < 0.2) damage *= 2;
+  if (hasInstakill && Math.random() < 0.3 && enemy.maxHp < 100) damage = enemy.hp;
+  
+  enemy.hp -= damage;
+  showDamage(enemy.x, enemy.y, damage);
+  updateEnemyHealth(enemy);
+  
+  if (enemy.hp <= 0) {
+    enemy.hp = 0;
+    enemy.el.style.opacity = "0";
+    setTimeout(() => {
+      if (enemy.el && enemy.el.parentNode) game.removeChild(enemy.el);
+      enemies = enemies.filter(e => e !== enemy);
+      if (enemies.length === 0) {
+        setTimeout(spawnEnemies, 1000);
+      }
+    }, 300);
+    gainXP(50 + player.level * 10);
+  }
+}
+
+function damagePlayer(damage) {
+  if (player.shielded) damage = Math.floor(damage * 0.2);
+  else if (player.passives.find(p => p.type === "defense")) damage = Math.floor(damage * 0.6);
+  if (player.raging) damage = Math.floor(damage * 0.5);
+  
+  player.hp -= damage;
+  showDamage(player.x, player.y, damage);
+  updateHUD();
+  broadcastPlayerState();
+  
+  if (player.hp <= 0) {
+    const hasRevive = player.passives.find(p => p.type === "revive" && !p.used);
+    if (hasRevive) {
+      player.hp = 1;
+      hasRevive.used = true;
+      showReviveMessage();
+    } else {
+      gameOver();
+    }
+  }
+}
+
+function showReviveMessage() {
+  const msg = document.createElement("div");
+  msg.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;color:#ffd93d;font-weight:bold;z-index:999;text-shadow:3px 3px 6px #000;animation:damageFloat 2s forwards;";
+  msg.textContent = "💫 ZWEITE CHANCE! 💫";
+  game.appendChild(msg);
+  setTimeout(() => {
+    if (msg.parentNode) game.removeChild(msg);
+  }, 2000);
+}
+
+function showDamage(x, y, damage) {
+  const dmgText = document.createElement("div");
+  dmgText.classList.add("damage-text");
+  dmgText.textContent = "-" + damage;
+  dmgText.style.left = x + 20 + "px";
+  dmgText.style.top = y + "px";
+  game.appendChild(dmgText);
+  setTimeout(() => {
+    if (dmgText.parentNode) game.removeChild(dmgText);
+  }, 1000);
+}
+
+function gainXP(amount) {
+  player.xp += amount;
+  updateHUD();
+  checkLevelUp();
+}
+
+function checkLevelUp() {
+  const xpNeeded = player.level * 100;
+  if (player.xp >= xpNeeded) {
+    player.level++;
+    player.xp -= xpNeeded;
+    player.maxHp += 20;
+    player.hp = player.maxHp;
+    player.skillRange += 10;
+    enemyCount += 2;
+    levelEl.textContent = player.level;
+    updateHUD();
+    showLevelUpChoice();
+    broadcastPlayerState();
+  }
+}
+
+function showLevelUpChoice() {
+  const modal = document.createElement("div");
+  modal.classList.add("level-up-modal");
+  modal.id = "levelup-modal";
+  
+  let choices = [];
+  
+  const availableSkills = advancedSkills[player.class].filter(s => 
+    s.level === player.level && !player.abilities.find(a => a.name === s.name)
+  );
+  
+  const availablePassives = passiveAbilities[player.class].filter(p => 
+    p.level === player.level && !player.passives.find(pa => pa.name === p.name)
+  );
+  
+  if (availableSkills.length > 0) {
+    choices.push({
+      type: "skill",
+      data: availableSkills[0]
+    });
+  }
+  
+  if (availablePassives.length > 0) {
+    choices.push({
+      type: "passive",
+      data: availablePassives[0]
+    });
+  }
+  
+  if (choices.length === 0) {
+    showLevelUpMessage();
+    return;
+  }
+  
+  let html = `<h2>⭐ LEVEL ${player.level}! ⭐</h2><p>Wähle eine neue Fähigkeit:</p>`;
+  
+  choices.forEach((choice, idx) => {
+    if (choice.type === "skill") {
+      html += `
+        <div class="ability-choice" onclick="chooseAbility(${idx})">
+          <h3>${choice.data.emoji} ${choice.data.name}</h3>
+          <p>Neue Aktive Fähigkeit - ${choice.data.dmg} Schaden</p>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="ability-choice" onclick="chooseAbility(${idx})">
+          <h3>🌟 ${choice.data.name}</h3>
+          <p>Passive Fähigkeit - ${choice.data.desc}</p>
+        </div>
+      `;
+    }
+  });
+  
+  modal.innerHTML = html;
+  game.appendChild(modal);
+  
+  window.levelUpChoices = choices;
+}
+
+function chooseAbility(idx) {
+  const choice = window.levelUpChoices[idx];
+  
+  if (choice.type === "skill") {
+    choice.data.isNew = true;
+    player.abilities.push(choice.data);
+    setupSkills();
+  } else {
+    player.passives.push(choice.data);
+    updatePassiveDisplay();
+  }
+  
+  const modal = document.getElementById("levelup-modal");
+  if (modal && modal.parentNode) game.removeChild(modal);
+  
+  showLevelUpMessage();
+}
+
+function updatePassiveDisplay() {
+  if (player.passives.length === 0) {
+    passiveList.textContent = "Keine";
+  } else {
+    passiveList.innerHTML = player.passives.map(p => 
+      `<span class="passive-item">${p.name}</span>`
+    ).join("");
+  }
+}
+
+function showLevelUpMessage() {
+  const msg = document.createElement("div");
+  msg.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;color:#ffd93d;font-weight:bold;z-index:999;text-shadow:3px 3px 6px #000;animation:damageFloat 2s forwards;";
+  msg.textContent = "⭐ LEVEL UP! ⭐";
+  game.appendChild(msg);
+  setTimeout(() => {
+    if (msg.parentNode) game.removeChild(msg);
+  }, 2000);
+}
+
+function initGame() {
+  player.el = document.createElement("div");
+  player.el.classList.add("character");
+  player.el.innerHTML = `${classEmojis[player.class]}<div class="player-name">${player.name}</div>`;
+  game.appendChild(player.el);
+  updatePlayerPos();
+  
+  spawnEnemies();
+  updateHUD();
+  
+  setInterval(() => {
+    if (player.passives.find(p => p.type === "regen")) {
+      player.hp = Math.min(player.maxHp, player.hp + 2);
+      updateHUD();
+      broadcastPlayerState();
+    }
+  }, 1000);
+  
+  setInterval(() => {
+    enemies.forEach(e => {
+      if (e.poisoned && e.hp > 0) {
+        e.hp -= e.poisoned.dmg;
+        showDamage(e.x, e.y, e.poisoned.dmg);
+        updateEnemyHealth(e);
+        e.poisoned.ticks--;
+        if (e.poisoned.ticks <= 0) delete e.poisoned;
+        if (e.hp <= 0) {
+          e.hp = 0;
+          e.el.style.opacity = "0";
+          setTimeout(() => {
+            if (e.el && e.el.parentNode) game.removeChild(e.el);
+            enemies = enemies.filter(en => en !== e);
+          }, 300);
+          gainXP(50 + player.level * 10);
+        }
+      }
+    });
+  }, 1000);
+  
+  gameLoop = setInterval(() => {
+    moveEnemies();
+    checkEnemyCollisions();
+    updateOtherPlayers();
+  }, 100);
+  
+  setInterval(broadcastPlayerState, 200);
+}
+
+function spawnEnemies() {
+  enemies.forEach(e => {
+    if (e.el && e.el.parentNode) game.removeChild(e.el);
+  });
+  enemies = [];
+  
+  for (let i = 0; i < enemyCount; i++) {
+    const enemyEl = document.createElement("div");
+    enemyEl.classList.add("enemy");
+    enemyEl.innerHTML = `👾<div class="health-bar"><div class="health-fill"></div></div>`;
+    
+    const enemy = {
+      x: Math.random() * (game.clientWidth - 40),
+      y: Math.random() * (game.clientHeight - 40),
+      hp: 30 + (player.level * 10),
+      maxHp: 30 + (player.level * 10),
+      el: enemyEl,
+      speedX: (Math.random() - 0.5) * 2,
+      speedY: (Math.random() - 0.5) * 2
+    };
+    
+    enemyEl.style.left = enemy.x + "px";
+    enemyEl.style.top = enemy.y + "px";
+    enemies.push(enemy);
+    game.appendChild(enemyEl);
+    updateEnemyHealth(enemy);
+  }
+}
+
+function moveEnemies() {
+  enemies.forEach(e => {
+    if (e.hp <= 0) return;
+    
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    
+    let speed = e.slowed ? 0.5 : 1.5;
+    
+    if (dist > 0) {
+      e.x += (dx / dist) * speed;
+      e.y += (dy / dist) * speed;
+    }
+    
+    e.x = Math.max(0, Math.min(game.clientWidth - 40, e.x));
+    e.y = Math.max(0, Math.min(game.clientHeight - 40, e.y));
+    
+    e.el.style.left = e.x + "px";
+    e.el.style.top = e.y + "px";
+  });
+}
+
+function checkEnemyCollisions() {
+  enemies.forEach(e => {
+    if (e.hp > 0 && getDistance(player, e) < 35) {
+      if (!e.lastAttack || Date.now() - e.lastAttack > 1000) {
+        damagePlayer(10 + player.level * 2);
+        e.lastAttack = Date.now();
+      }
+    }
+  });
+}
+
+function getDistance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+
+function updatePlayerPos() {
+  if (player.el) {
+    player.el.style.left = player.x + "px";
+    player.el.style.top = player.y + "px";
+  }
+}
+
+function updateEnemyHealth(enemy) {
+  if (!enemy.el) return;
+  const healthFill = enemy.el.querySelector(".health-fill");
+  if (healthFill) {
+    const percent = (enemy.hp / enemy.maxHp) * 100;
+    healthFill.style.width = percent + "%";
+  }
+}
+
+function updateHUD() {
+  const hpPercent = (player.hp / player.maxHp) * 100;
+  hpFill.style.width = hpPercent + "%";
+  hpFill.textContent = `${Math.max(0, player.hp)}/${player.maxHp}`;
+  
+  const xpNeeded = player.level * 100;
+  const xpPercent = (player.xp / xpNeeded) * 100;
+  xpFill.style.width = xpPercent + "%";
+  xpFill.textContent = `${player.xp}/${xpNeeded}`;
+}
+
+function gameOver() {
+  clearInterval(gameLoop);
+  const overlay = document.createElement("div");
+  overlay.classList.add("game-over");
+  overlay.innerHTML = `
+    <h2>💀 GAME OVER 💀</h2>
+    <p>Du hast Level ${player.level} erreicht!</p>
+    <button class="restart-btn" onclick="location.reload()">Neu starten</button>
+  `;
+  game.appendChild(overlay);
+}
+
+function broadcastPlayerState() {
+  const state = {
+    id: player.id,
+    name: player.name,
+    x: player.x,
+    y: player.y,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    level: player.level,
+    class: player.class
+  };
+  
+  try {
+    window.storage.set(`player_${player.id}`, JSON.stringify(state), true);
+  } catch (e) {}
+}
+
+async function updateOtherPlayers() {
+  try {
+    const keys = await window.storage.list('player_', true);
+    if (!keys || !keys.keys) return;
+    
+    const currentIds = new Set();
+    
+    for (const key of keys.keys) {
+      if (key === `player_${player.id}`) continue;
+      
+      try {
+        const result = await window.storage.get(key, true);
+        if (!result) continue;
+        
+        const data = JSON.parse(result.value);
+        currentIds.add(data.id);
+        
+        if (!otherPlayers[data.id]) {
+          const playerEl = document.createElement("div");
+          playerEl.classList.add("other-player");
+          playerEl.innerHTML = `${classEmojis[data.class] || '👤'}<div class="player-name">${data.name}</div>`;
+          game.appendChild(playerEl);
+          otherPlayers[data.id] = {
+            el: playerEl,
+            data: data
+          };
+        }
+        
+        otherPlayers[data.id].el.style.left = data.x + "px";
+        otherPlayers[data.id].el.style.top = data.y + "px";
+        otherPlayers[data.id].data = data;
+      } catch (e) {}
+    }
+    
+    Object.keys(otherPlayers).forEach(id => {
+      if (!currentIds.has(id)) {
+        if (otherPlayers[id].el && otherPlayers[id].el.parentNode) {
+          game.removeChild(otherPlayers[id].el);
+        }
+        delete otherPlayers[id];
+      }
+    });
+    
+    updatePlayerList();
+  } catch (e) {}
+}
+
+function updatePlayerList() {
+  const count = Object.keys(otherPlayers).length + 1;
+  playersOnline.innerHTML = `<div class="player-entry">🟢 ${player.name} (Du)</div>`;
+  Object.values(otherPlayers).forEach(p => {
+    playersOnline.innerHTML += `<div class="player-entry">🟢 ${p.data.name}</div>`;
+  });
+}
+
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+  
+  if (e.key === "Escape" && !targetingSkill) {
+    player.level = 1;
+    player.xp = 0;
+    player.hp = 100;
+    player.maxHp = 100;
+    player.abilities = [...baseSkills[player.class]];
+    player.passives = [];
+    player.skillRange = 150;
+    enemyCount = 3;
+    levelEl.textContent = 1;
+    setupSkills();
+    updateHUD();
+    updatePassiveDisplay();
+    spawnEnemies();
+  }
+  
+  if (e.key >= "1" && e.key <= "5") {
+    const idx = parseInt(e.key) - 1;
+    const btn = skillsDiv.children[idx];
+    if (btn && player.abilities[idx]) {
+      const skill = player.abilities[idx];
+      if (skill.targeted) {
+        startTargeting(skill, btn);
+      } else {
+        useSkill(skill, btn);
+      }
+    }
+  }
+});
+
+document.addEventListener("keyup", e => {
+  keys[e.key] = false;
+});
+
+setInterval(() => {
+  const baseSpeed = player.passives.find(p => p.type === "speed") ? 6 : 4;
+  const speed = (player.speedBoost || keys["Shift"]) ? baseSpeed * 1.5 : baseSpeed;
+  let moved = false;
+  
+  if (keys["ArrowUp"] || keys["w"] || keys["W"]) {
+    player.y -= speed;
+    moved = true;
+  }
+  if (keys["ArrowDown"] || keys["s"] || keys["S"]) {
+    player.y += speed;
+    moved = true;
+  }
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) {
+    player.x -= speed;
+    moved = true;
+  }
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) {
+    player.x += speed;
+    moved = true;
+  }
+  
+  if (moved) {
+    player.x = Math.max(0, Math.min(game.clientWidth - 40, player.x));
+    player.y = Math.max(0, Math.min(game.clientHeight - 40, player.y));
+    updatePlayerPos();
+  }
+}, 1000 / 60);
+
+window.selectClass = selectClass;
+window.chooseAbility = chooseAbility;
+</script>
+</body>
+</html>
