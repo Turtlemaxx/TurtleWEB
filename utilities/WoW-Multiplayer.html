@@ -1,0 +1,2428 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Epic Pixel RPG - Enhanced Edition (Full Upgrade)</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Courier New', monospace;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  background-size: 400% 400%;
+  animation: bgShift 15s ease infinite;
+  color: #fff;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+  padding: 10px 0;
+}
+@keyframes bgShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+#container { max-width: 900px; width: 100%; padding: 20px; }
+
+/* ✅ responsive + small screens */
+@media (max-width: 560px){
+  #container{padding:10px;}
+  .stat-bar{width:120px;height:16px;}
+  .info-text{font-size:14px;}
+  .skill-btn{width:58px;height:58px;font-size:24px;}
+  .skill-name{font-size:8px;}
+  #game{border-radius:14px;}
+  #player-list{max-width:160px;font-size:10px;}
+  #controls{font-size:10px;}
+}
+@media (max-width: 420px){
+  .stat-bar{width:104px;height:14px;}
+  .stat-fill{font-size:10px;}
+  .info-text{font-size:13px;}
+  .skill-btn{width:52px;height:52px;font-size:22px;}
+  #passives h3{font-size:13px;}
+  #game{height:58vh !important;}
+}
+
+#hud {
+  background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,30,60,0.9));
+  padding: 15px;
+  border-radius: 15px;
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 3px solid #4ecdc4;
+  box-shadow: 0 0 30px rgba(78,205,196,0.3), inset 0 0 20px rgba(78,205,196,0.1);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.stat { display: flex; flex-direction: column; gap: 5px; }
+.stat-label {
+  font-size: 12px;
+  color: #4ecdc4;
+  font-weight: bold;
+  text-shadow: 0 0 10px #4ecdc4;
+}
+.stat-bar {
+  width: 150px;
+  height: 20px;
+  background: #1a1a2e;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #4ecdc4;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+.stat-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+  transition: width 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+  box-shadow: 0 0 10px rgba(255,107,107,0.5);
+}
+.xp-fill {
+  background: linear-gradient(90deg, #4ecdc4, #44a3d5);
+  box-shadow: 0 0 10px rgba(78,205,196,0.5);
+}
+.info-text {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ffd93d;
+  text-shadow: 0 0 10px #ffd93d;
+  white-space: nowrap;
+}
+#skills {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.skill-btn {
+  width: 70px;
+  height: 70px;
+  border: 3px solid #4ecdc4;
+  background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(30,30,60,0.9));
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 12px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 28px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5), inset 0 0 10px rgba(78,205,196,0.2);
+}
+.skill-btn.targeted {
+  border-color: #ffd93d;
+  box-shadow: 0 0 25px #ffd93d;
+  animation: targetPulse 1s infinite;
+}
+@keyframes targetPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.skill-btn.new-skill { animation: newSkillGlow 2s infinite; }
+@keyframes newSkillGlow {
+  0%, 100% { border-color: #4ecdc4; box-shadow: 0 0 15px #4ecdc4; }
+  50% { border-color: #ffd93d; box-shadow: 0 0 30px #ffd93d; }
+}
+.skill-btn:hover:not(.cooling) {
+  transform: scale(1.15) translateY(-5px);
+  border-color: #ffd93d;
+  box-shadow: 0 0 30px rgba(255,217,61,0.8);
+}
+.skill-btn:active:not(.cooling) { transform: scale(0.95); }
+.skill-btn.cooling {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: #666;
+  filter: grayscale(1);
+}
+.skill-name {
+  font-size: 9px;
+  margin-top: 2px;
+  color: #4ecdc4;
+  text-shadow: 0 0 5px #4ecdc4;
+}
+.cooldown-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255,0,0,0.7);
+  transition: height 0.1s linear;
+  border-radius: 0 0 9px 9px;
+}
+#passives {
+  background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(60,30,60,0.9));
+  padding: 10px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  border: 2px solid #ffd93d;
+  min-height: 50px;
+  box-shadow: 0 0 20px rgba(255,217,61,0.2);
+}
+#passives h3 {
+  font-size: 14px;
+  color: #ffd93d;
+  margin-bottom: 5px;
+  text-shadow: 0 0 10px #ffd93d;
+}
+.passive-item {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(255,217,61,0.3), rgba(255,217,61,0.1));
+  padding: 5px 10px;
+  border-radius: 8px;
+  margin: 2px;
+  font-size: 12px;
+  border: 1px solid #ffd93d;
+  box-shadow: 0 0 10px rgba(255,217,61,0.3);
+}
+
+/* ✅ responsive game height */
+#game {
+  position: relative;
+  width: 100%;
+  height: min(70vh, 520px);
+  background: linear-gradient(180deg, #1a1d3d, #2d3561, #1a1d3d);
+  border: 4px solid #4ecdc4;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.7), inset 0 0 100px rgba(78,205,196,0.1);
+  cursor: crosshair;
+}
+#game::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(78,205,196,0.05), transparent 70%);
+  animation: rotateBack 30s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+@keyframes rotateBack {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.character, .enemy, .other-player, .minion {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  transition: transform 0.1s;
+  filter: drop-shadow(0 0 8px rgba(255,255,255,0.4)) drop-shadow(2px 2px 4px rgba(0,0,0,0.8));
+  animation: charFloat 3s ease-in-out infinite;
+  z-index: 10;
+}
+@keyframes charFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.character { z-index: 15; }
+.other-player { z-index: 12; opacity: 0.85; }
+.enemy {
+  z-index: 8;
+  animation: enemyPulse 2s ease-in-out infinite;
+}
+@keyframes enemyPulse {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(255,100,100,0.5)); }
+  50% { filter: drop-shadow(0 0 15px rgba(255,50,50,0.8)); }
+}
+.minion { z-index: 9; font-size: 24px; }
+.player-name {
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: #4ecdc4;
+  font-weight: bold;
+  white-space: nowrap;
+  text-shadow: 0 0 5px #000, 1px 1px 2px #000;
+}
+.health-bar {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 45px;
+  height: 5px;
+  background: #1a1a2e;
+  border-radius: 3px;
+  border: 1px solid #4ecdc4;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+.health-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
+  border-radius: 2px;
+  transition: width 0.3s;
+  box-shadow: 0 0 5px rgba(255,107,107,0.5);
+}
+.damage-text {
+  position: absolute;
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 22px;
+  animation: dmgFloat 1s forwards;
+  pointer-events: none;
+  text-shadow: 0 0 10px #ff6b6b, 2px 2px 4px #000;
+  z-index: 100;
+}
+@keyframes dmgFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  50% { transform: translateY(-25px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-50px) scale(0.8); }
+}
+.heal-text { color: #00ff00; text-shadow: 0 0 10px #00ff00, 2px 2px 4px #000; }
+.skill-effect {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  animation: skillPulse 0.6s forwards;
+  pointer-events: none;
+  z-index: 50;
+}
+@keyframes skillPulse {
+  0% { transform: scale(0); opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.range-indicator {
+  position: absolute;
+  border: 2px dashed rgba(78,205,196,0.6);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 5;
+  transition: all 0.3s;
+  box-shadow: 0 0 20px rgba(78,205,196,0.3);
+  animation: rangeRotate 4s linear infinite;
+}
+@keyframes rangeRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.target-line {
+  position: absolute;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(255,215,0,0.8), rgba(255,215,0,0));
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 8;
+  box-shadow: 0 0 10px rgba(255,215,0,0.5);
+}
+
+/* ✅ Boss projectiles - sichtbar */
+.projectile {
+  position:absolute;
+  width:14px;height:14px;border-radius:50%;
+  z-index:60;
+  pointer-events:none;
+  background: radial-gradient(circle, rgba(255,80,80,1) 0%, rgba(255,80,80,0.35) 55%, rgba(255,80,80,0) 75%);
+  box-shadow: 0 0 18px rgba(255,80,80,0.9), 0 0 34px rgba(255,80,80,0.35);
+}
+.projectile::after{
+  content:"";
+  position:absolute;
+  left:-18px; top:3px;
+  width:18px; height:8px;
+  background: linear-gradient(90deg, rgba(255,80,80,0) 0%, rgba(255,80,80,0.55) 55%, rgba(255,80,80,0.9) 100%);
+  filter: blur(1px);
+  transform: rotate(0deg);
+}
+
+#class-select {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(30,20,40,0.95));
+  padding: 40px;
+  border-radius: 20px;
+  border: 4px solid #4ecdc4;
+  z-index: 1000;
+  text-align: center;
+  box-shadow: 0 10px 60px rgba(0,0,0,0.9), 0 0 40px rgba(78,205,196,0.3);
+}
+#class-select h2 {
+  margin-bottom: 20px;
+  color: #ffd93d;
+  font-size: 32px;
+  text-shadow: 0 0 20px #ffd93d;
+  animation: titleGlow 2s ease-in-out infinite;
+}
+@keyframes titleGlow {
+  0%, 100% { text-shadow: 0 0 20px #ffd93d; }
+  50% { text-shadow: 0 0 30px #ffd93d, 0 0 40px #ffd93d; }
+}
+#class-select input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 25px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 2px solid #4ecdc4;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+.class-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.class-option {
+  padding: 20px 15px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: 3px solid #4ecdc4;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5), inset 0 0 20px rgba(255,255,255,0.1);
+}
+.class-option:hover {
+  transform: scale(1.1) translateY(-5px);
+  box-shadow: 0 10px 30px rgba(78,205,196,0.6), inset 0 0 30px rgba(255,255,255,0.2);
+  border-color: #ffd93d;
+}
+#controls {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 11px;
+  color: #4ecdc4;
+  background: rgba(0,0,0,0.6);
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #4ecdc4;
+}
+.game-over, .level-up-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, rgba(0,0,0,0.98), rgba(40,0,0,0.98));
+  padding: 40px;
+  border-radius: 20px;
+  border: 4px solid #ff6b6b;
+  z-index: 1000;
+  text-align: center;
+  box-shadow: 0 10px 60px rgba(255,0,0,0.5);
+}
+.level-up-modal {
+  background: linear-gradient(135deg, rgba(0,0,0,0.98), rgba(40,40,0,0.98));
+  border-color: #ffd93d;
+  max-width: 520px;
+  box-shadow: 0 10px 60px rgba(255,217,61,0.5);
+}
+.level-up-modal h2 {
+  color: #ffd93d;
+  font-size: 34px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 30px #ffd93d;
+  animation: lvlPulse 1s ease-in-out infinite;
+}
+@keyframes lvlPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.ability-choice {
+  background: linear-gradient(135deg, rgba(78,205,196,0.3), rgba(78,205,196,0.1));
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 12px;
+  border: 2px solid #4ecdc4;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+.ability-choice:hover {
+  background: linear-gradient(135deg, rgba(78,205,196,0.5), rgba(78,205,196,0.2));
+  transform: scale(1.03);
+  box-shadow: 0 10px 25px rgba(78,205,196,0.5);
+  border-color: #ffd93d;
+}
+.ability-choice h3 {
+  font-size: 18px;
+  margin-bottom: 5px;
+  text-shadow: 0 0 10px rgba(78,205,196,0.8);
+}
+.ability-choice p { font-size: 13px; color: #ccc; }
+.game-over h2 {
+  color: #ff6b6b;
+  font-size: 42px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 30px #ff6b6b;
+  animation: gameOverShake 0.5s ease-in-out;
+}
+@keyframes gameOverShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+.restart-btn {
+  margin-top: 20px;
+  padding: 15px 35px;
+  background: linear-gradient(135deg, #4ecdc4, #44a3d5);
+  border: none;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+}
+.restart-btn:hover {
+  background: linear-gradient(135deg, #44a3d5, #4ecdc4);
+  transform: scale(1.1) translateY(-3px);
+  box-shadow: 0 10px 25px rgba(78,205,196,0.5);
+}
+#player-list {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, rgba(0,0,0,0.9), rgba(20,20,40,0.9));
+  padding: 12px;
+  border-radius: 12px;
+  border: 2px solid #4ecdc4;
+  font-size: 11px;
+  max-width: 200px;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.7);
+  z-index: 20;
+}
+#player-list h4 {
+  color: #ffd93d;
+  margin-bottom: 8px;
+  text-shadow: 0 0 10px #ffd93d;
+}
+.player-entry {
+  padding: 4px 0;
+  color: #4ecdc4;
+  text-shadow: 0 0 5px #4ecdc4;
+}
+
+/* loot rarity colors */
+.rarity-common { color:#b8c1cc; }
+.rarity-rare { color:#4ecdc4; }
+.rarity-epic { color:#b86bff; }
+.rarity-legendary { color:#ffd93d; text-shadow:0 0 10px #ffd93d; }
+
+/* ✅ Shop */
+#shop-modal{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,0.78);
+  z-index:5000;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:12px;
+}
+.shop-box{
+  width:min(520px, 95vw);
+  background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(30,20,40,0.95));
+  border:3px solid #4ecdc4;
+  border-radius:18px;
+  padding:18px;
+  box-shadow: 0 10px 60px rgba(0,0,0,0.9), 0 0 30px rgba(78,205,196,0.25);
+}
+.shop-title{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:10px;
+}
+.shop-title h2{
+  color:#ffd93d;
+  text-shadow:0 0 12px #ffd93d;
+  font-size:22px;
+}
+.shop-gold{
+  color:#4ecdc4;
+  font-weight:bold;
+  text-shadow:0 0 10px #4ecdc4;
+  font-size:14px;
+}
+.shop-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+.shop-item{
+  border:2px solid #4ecdc4;
+  border-radius:12px;
+  padding:12px;
+  cursor:pointer;
+  background: rgba(0,0,0,0.45);
+  transition: all .18s;
+  box-shadow: inset 0 0 10px rgba(78,205,196,0.1);
+}
+.shop-item:hover{
+  transform: translateY(-2px);
+  border-color:#ffd93d;
+  box-shadow: 0 0 20px rgba(255,217,61,0.25);
+}
+.shop-item h3{font-size:14px;color:#ffd93d;margin-bottom:4px;}
+.shop-item p{font-size:12px;color:#ccc;}
+.shop-footer{
+  margin-top:12px;
+  display:flex;
+  gap:10px;
+  justify-content:space-between;
+  align-items:center;
+}
+.shop-btn{
+  padding:10px 14px;
+  border-radius:12px;
+  border:0;
+  cursor:pointer;
+  background: linear-gradient(135deg, #4ecdc4, #44a3d5);
+  color:white;
+  font-weight:bold;
+}
+.shop-hint{font-size:12px;color:#ccc;}
+#toast{
+  position:fixed;
+  left:50%;
+  bottom:18px;
+  transform:translateX(-50%);
+  background: rgba(0,0,0,0.75);
+  border:1px solid #4ecdc4;
+  border-radius:12px;
+  padding:10px 14px;
+  z-index:6000;
+  opacity:0;
+  transition: opacity .18s;
+  max-width:min(92vw,520px);
+  pointer-events:none;
+  font-size:12px;
+  color:#ffd93d;
+  text-shadow:0 0 10px rgba(255,217,61,0.25);
+}
+</style>
+</head>
+
+<body>
+<div id="container">
+  <div id="hud">
+    <div class="stat">
+      <div class="stat-label">HP</div>
+      <div class="stat-bar">
+        <div class="stat-fill" id="hp-fill">100/100</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">XP</div>
+      <div class="stat-bar">
+        <div class="stat-fill xp-fill" id="xp-fill">0/100</div>
+      </div>
+    </div>
+    <div class="info-text">Level: <span id="level">1</span></div>
+    <div class="info-text">Klasse: <span id="class-name">-</span></div>
+    <div class="info-text">Welle: <span id="wave">1</span></div>
+    <div class="info-text">Gold: <span id="gold">0</span></div>
+  </div>
+
+  <div id="passives">
+    <h3>🌟 Passive Fähigkeiten</h3>
+    <div id="passive-list">Keine</div>
+  </div>
+
+  <div id="skills"></div>
+
+  <div id="game">
+    <div id="player-list">
+      <h4>🎮 Spieler Online</h4>
+      <div id="players-online"></div>
+    </div>
+
+    <!-- Boss HUD -->
+    <div id="boss-hud" style="position:absolute;left:10px;top:10px;z-index:30;display:none;
+    background:rgba(0,0,0,0.75);border:2px solid #ff6b6b;border-radius:10px;padding:8px;min-width:220px;">
+      <div style="font-weight:bold;color:#ff6b6b;">👑 Boss</div>
+      <div class="stat-bar" style="width:200px;height:16px;border-color:#ff6b6b;">
+        <div class="stat-fill" id="boss-hp-fill" style="background:linear-gradient(90deg,#ff6b6b,#ff2d55);font-size:10px;">0/0</div>
+      </div>
+    </div>
+
+    <!-- Loot Log -->
+    <div id="loot-log" style="position:absolute;left:10px;bottom:10px;z-index:30;max-width:320px;
+    background:rgba(0,0,0,0.55);border:1px solid #4ecdc4;border-radius:10px;padding:8px;font-size:11px;color:#4ecdc4;">
+      <div style="color:#ffd93d;font-weight:bold;margin-bottom:4px;">🎁 Loot (Taste I = Trank nutzen)</div>
+      <div id="loot-lines">Noch nichts gedroppt.</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    Steuerung: WASD / Pfeiltasten | Skills: 1-6 / Klicken (zielen mit Maus!) | ESC: Reset |
+    ⚡ Neue Fähigkeiten alle 3 Level! | 👑 Boss alle 5 Wellen | 🛒 Shop: Taste B
+  </div>
+</div>
+
+<!-- ✅ Shop Modal -->
+<div id="shop-modal">
+  <div class="shop-box">
+    <div class="shop-title">
+      <h2>🛒 Shop & Upgrades</h2>
+      <div class="shop-gold">Gold: <span id="shop-gold">0</span></div>
+    </div>
+
+    <div class="shop-grid">
+      <div class="shop-item" onclick="shopBuy('potion')">
+        <h3>🧪 Trank +1</h3>
+        <p>Heilt 35 HP (im Loot-Log mit I nutzen)</p>
+        <p><b>Kosten:</b> 30 Gold</p>
+      </div>
+
+      <div class="shop-item" onclick="shopBuy('maxhp')">
+        <h3>❤️ Max HP +25</h3>
+        <p>Mehr Tankiness, skaliert gut in Bossfights</p>
+        <p><b>Kosten:</b> 80 Gold</p>
+      </div>
+
+      <div class="shop-item" onclick="shopBuy('dmg')">
+        <h3>⚔️ Schaden +10%</h3>
+        <p>Mehr DPS (stapelt)</p>
+        <p><b>Kosten:</b> 120 Gold</p>
+      </div>
+
+      <div class="shop-item" onclick="shopBuy('crit')">
+        <h3>🎯 Crit +10%</h3>
+        <p>Mehr 2x-Schaden (stapelt)</p>
+        <p><b>Kosten:</b> 110 Gold</p>
+      </div>
+
+      <div class="shop-item" onclick="shopBuy('cdr')">
+        <h3>⏱️ Cooldown -10%</h3>
+        <p>Schneller Skills (stapelt, cap bei 55%)</p>
+        <p><b>Kosten:</b> 140 Gold</p>
+      </div>
+
+      <div class="shop-item" onclick="shopBuy('range')">
+        <h3>📡 Range +20</h3>
+        <p>Mehr Reichweite für Skills</p>
+        <p><b>Kosten:</b> 90 Gold</p>
+      </div>
+    </div>
+
+    <div class="shop-footer">
+      <div class="shop-hint">Tipp: Bossdrop gibt viel Gold + Loot.</div>
+      <button class="shop-btn" onclick="toggleShop(false)">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<div id="class-select">
+  <h2>🎮 Wähle deine Klasse!</h2>
+  <input type="text" id="player-name-input" placeholder="Dein Name" maxlength="15">
+  <div class="class-grid">
+    <div class="class-option" onclick="selectClass('Magier')">🧙‍♂️<br>Magier</div>
+    <div class="class-option" onclick="selectClass('Jäger')">🏹<br>Jäger</div>
+    <div class="class-option" onclick="selectClass('Krieger')">⚔️<br>Krieger</div>
+    <div class="class-option" onclick="selectClass('Paladin')">🛡️<br>Paladin</div>
+    <div class="class-option" onclick="selectClass('Assassine')">🗡️<br>Assassine</div>
+    <div class="class-option" onclick="selectClass('Nekromant')">💀<br>Nekromant</div>
+    <div class="class-option" onclick="selectClass('Druide')">🌿<br>Druide</div>
+    <div class="class-option" onclick="selectClass('Berserker')">🩸<br>Berserker</div>
+    <div class="class-option" onclick="selectClass('Hexenmeister')">🕯️<br>Hexenmeister</div>
+    <div class="class-option" onclick="selectClass('Mönch')">🥋<br>Mönch</div>
+    <div class="class-option" onclick="selectClass('Ingenieur')">🤖<br>Ingenieur</div>
+
+  </div>
+</div>
+
+<script>
+const game = document.getElementById("game");
+const hpFill = document.getElementById("hp-fill");
+const xpFill = document.getElementById("xp-fill");
+const levelEl = document.getElementById("level");
+const classNameEl = document.getElementById("class-name");
+const waveEl = document.getElementById("wave");
+const goldEl = document.getElementById("gold");
+const skillsDiv = document.getElementById("skills");
+const classSelect = document.getElementById("class-select");
+const passiveList = document.getElementById("passive-list");
+const playersOnline = document.getElementById("players-online");
+const playerNameInput = document.getElementById("player-name-input");
+
+const bossHud = document.getElementById("boss-hud");
+const bossHpFill = document.getElementById("boss-hp-fill");
+const lootLines = document.getElementById("loot-lines");
+
+const shopModal = document.getElementById("shop-modal");
+const shopGoldEl = document.getElementById("shop-gold");
+const toast = document.getElementById("toast");
+
+let toastT = null;
+function showToast(msg){
+  toast.textContent = msg;
+  toast.style.opacity = "1";
+  clearTimeout(toastT);
+  toastT = setTimeout(()=> toast.style.opacity="0", 1000);
+}
+
+/* ✅ projectiles */
+let projectiles = [];
+function spawnProjectile(fromX, fromY, toX, toY, speed, damage){
+  const el = document.createElement("div");
+  el.className = "projectile";
+  game.appendChild(el);
+
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const dist = Math.max(1, Math.sqrt(dx*dx + dy*dy));
+  const vx = (dx / dist) * speed;
+  const vy = (dy / dist) * speed;
+
+  const p = { x: fromX, y: fromY, vx, vy, damage, el, born: Date.now() };
+  el.style.left = (p.x) + "px";
+  el.style.top  = (p.y) + "px";
+  projectiles.push(p);
+}
+function stepProjectiles(){
+  const now = Date.now();
+  for (let i=projectiles.length-1;i>=0;i--){
+    const p = projectiles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.el.style.left = p.x + "px";
+    p.el.style.top  = p.y + "px";
+
+    // despawn if old / out
+    if (now - p.born > 2200 || p.x < -20 || p.y < -20 || p.x > game.clientWidth+20 || p.y > game.clientHeight+20){
+      p.el.remove();
+      projectiles.splice(i,1);
+      continue;
+    }
+
+    // hit player
+    if (Math.abs((player.x+20) - (p.x+7)) < 18 && Math.abs((player.y+20) - (p.y+7)) < 18){
+      p.el.remove();
+      projectiles.splice(i,1);
+      damagePlayer(p.damage);
+    }
+  }
+}
+
+let player = {
+  id: 'p_' + Math.random().toString(36).substr(2, 9),
+  name: '',
+  x: 400,
+  y: 250,
+  hp: 100,
+  maxHp: 100,
+  xp: 0,
+  level: 1,
+  class: null,
+  role: null,        // healer | tank | dps
+  inventory: [],
+  gold: 0,
+  wave: 1,
+
+  abilities: [],
+  passives: [],
+  cooldowns: {},
+  el: null,
+  skillRange: 150,
+  minions: [],
+
+  // loot stats
+  extraCrit: 0,
+  extraDmg: 0,
+
+  // ✅ shop upgrades
+  shopCdr: 0 // 0..0.55
+};
+
+let enemies = [];
+let otherPlayers = {};
+let enemyCount = 3;
+let gameLoop = null;
+let keys = {};
+let rangeIndicator = null;
+let targetingSkill = null;
+let mouseX = 0;
+let mouseY = 0;
+let targetLine = null;
+
+const roleMods = {
+  healer: { dmg: 0.9, heal: 1.6, taken: 0.9 },
+  tank:   { dmg: 0.85, heal: 1.0, taken: 0.65 },
+  dps:    { dmg: 1.35, heal: 0.85, taken: 1.05 }
+};
+const roleBonusSkill = {
+  healer: {name:"Sofortheilung", dmg:0, cd:9000, emoji:"🩺", color:"#00ff00", special:"bigHeal"},
+  tank:   {name:"Spott", dmg:0, cd:8000, emoji:"📢", color:"#ffd93d", special:"taunt"},
+  dps:    {name:"Tödlicher Stoß", dmg:65, cd:9000, emoji:"🎯", color:"#ff6b6b", special:"execute", targeted:true}
+};
+
+const baseSkills = {
+  Magier: [
+    {name:"Feuerball", dmg:35, cd:2000, emoji:"🔥", color:"#ff6b35", targeted: true},
+    {name:"Frostblitz", dmg:25, cd:1500, emoji:"❄️", color:"#4ecdc4", targeted: true}
+  ],
+  Jäger: [
+    {name:"Schuss", dmg:30, cd:1500, emoji:"🏹", color:"#95e1d3", targeted: true},
+    {name:"Falle", dmg:20, cd:3000, emoji:"🕸️", color:"#f38181", targeted: true}
+  ],
+  Krieger: [
+    {name:"Schwertschlag", dmg:40, cd:2000, emoji:"⚔️", color:"#ff6b6b"},
+    {name:"Schildblock", dmg:0, cd:4000, emoji:"🛡️", color:"#4ecdc4", special:"shield"}
+  ],
+  Paladin: [
+    {name:"Heiliges Licht", dmg:30, cd:2000, emoji:"✨", color:"#ffd700", targeted: true},
+    {name:"Heilung", dmg:0, cd:5000, emoji:"💚", color:"#00ff00", special:"heal"}
+  ],
+  Assassine: [
+    {name:"Dolchwurf", dmg:45, cd:1800, emoji:"🗡️", color:"#8b0000", targeted: true},
+    {name:"Schatten", dmg:0, cd:6000, emoji:"👤", color:"#2f2f2f", special:"stealth"}
+  ],
+  Nekromant: [
+    {name:"Seelenentzug", dmg:35, cd:2000, emoji:"👻", color:"#9370db", targeted: true},
+    {name:"Beschwörung", dmg:0, cd:8000, emoji:"💀", color:"#8b008b", special:"summon"}
+  ],
+  Druide: [
+    {name:"Dornenpeitsche", dmg:28, cd:1500, emoji:"🌿", color:"#32cd32", targeted:true},
+    {name:"Natursegen", dmg:0, cd:6000, emoji:"🍃", color:"#4ecdc4", special:"heal"}
+  ],
+  Berserker: [
+    {name:"Axtspalter", dmg:38, cd:1800, emoji:"🪓", color:"#ff6b6b"},
+    {name:"Raserei", dmg:0, cd:7000, emoji:"😡", color:"#ff4500", special:"bloodlust"}
+  ],
+  Hexenmeister: [
+    {name:"Fluch", dmg:30, cd:1800, emoji:"🕯️", color:"#9370db", special:"curse", targeted:true},
+    {name:"Dämonenfunke", dmg:22, cd:1300, emoji:"✨", color:"#ff6b35", targeted:true}
+  ]
+};
+
+const levelSkills = { /* unchanged from your paste (kept) */
+  Magier: [
+    {name:"Teleport", dmg:0, cd:5000, emoji:"✨", color:"#ffd93d", special:"teleport", targeted: true, level:3},
+    {name:"Meteorregen", dmg:55, cd:8000, emoji:"☄️", color:"#ff4500", special:"meteor", level:6, targeted: true},
+    {name:"Zeitverzerrung", dmg:0, cd:10000, emoji:"⏰", color:"#9370db", special:"slow", level:9},
+    {name:"Arkaner Sturm", dmg:75, cd:12000, emoji:"🌪️", color:"#4b0082", special:"storm", level:12}
+  ],
+  Jäger: [
+    {name:"Sprint", dmg:0, cd:4000, emoji:"💨", color:"#ffd93d", special:"speed", level:3},
+    {name:"Giftpfeil", dmg:30, cd:3000, emoji:"🦠", color:"#32cd32", special:"poison", level:6, targeted: true},
+    {name:"Adlerauge", dmg:0, cd:15000, emoji:"🦅", color:"#ffd700", special:"vision", level:9},
+    {name:"Bombardement", dmg:65, cd:10000, emoji:"💣", color:"#ff6347", special:"bomb", level:12, targeted: true}
+  ],
+  Krieger: [
+    {name:"Kriegsschrei", dmg:20, cd:6000, emoji:"💢", color:"#ffd93d", special:"aoe", level:3},
+    {name:"Wirbelwind", dmg:50, cd:6000, emoji:"🌀", color:"#00ced1", special:"spin", level:6},
+    {name:"Unaufhaltbar", dmg:0, cd:20000, emoji:"💪", color:"#ff8c00", special:"rage", level:9},
+    {name:"Donnerschlag", dmg:85, cd:15000, emoji:"⚡", color:"#ffff00", special:"thunder", level:12, targeted: true}
+  ],
+  Paladin: [
+    {name:"Göttl. Schild", dmg:0, cd:8000, emoji:"🌟", color:"#fff700", special:"divineShield", level:3},
+    {name:"Heilwelle", dmg:0, cd:10000, emoji:"🌊", color:"#4ecdc4", special:"healWave", level:6},
+    {name:"Vergeltung", dmg:60, cd:7000, emoji:"⚖️", color:"#ff6b6b", special:"retribution", level:9, targeted: true},
+    {name:"Auferstehung", dmg:0, cd:30000, emoji:"👼", color:"#ffd700", special:"resurrect", level:12}
+  ],
+  Assassine: [
+    {name:"Blutdurst", dmg:0, cd:8000, emoji:"🩸", color:"#8b0000", special:"bloodlust", level:3},
+    {name:"Giftklinge", dmg:55, cd:5000, emoji:"🔪", color:"#32cd32", special:"poisonBlade", level:6, targeted: true},
+    {name:"Blinzeln", dmg:0, cd:6000, emoji:"⚡", color:"#ffd93d", special:"blink", level:9, targeted: true},
+    {name:"Assass. Schlag", dmg:100, cd:15000, emoji:"💀", color:"#8b0000", special:"assassinate", level:12, targeted: true}
+  ],
+  Nekromant: [
+    {name:"Lebensraub", dmg:40, cd:5000, emoji:"🧛", color:"#9370db", special:"lifesteal", level:3, targeted: true},
+    {name:"Skelett-Armee", dmg:0, cd:12000, emoji:"☠️", color:"#8b008b", special:"skeletonArmy", level:6},
+    {name:"Todesaura", dmg:30, cd:8000, emoji:"💀", color:"#4b0082", special:"deathAura", level:9},
+    {name:"Untote Welle", dmg:70, cd:15000, emoji:"🧟", color:"#556b2f", special:"undeadWave", level:12, targeted: true}
+  ],
+  Druide: [
+    {name:"Wurzelgriff", dmg:18, cd:5000, emoji:"🪴", color:"#32cd32", special:"root", level:3, targeted:true},
+    {name:"Heilquell", dmg:0, cd:10000, emoji:"💧", color:"#4ecdc4", special:"healWave", level:6},
+    {name:"Bärenform", dmg:0, cd:15000, emoji:"🐻", color:"#ffd93d", special:"bearForm", level:9},
+    {name:"Sturm der Natur", dmg:70, cd:13000, emoji:"🌪️", color:"#00ced1", special:"storm", level:12}
+  ],
+  Berserker: [
+    {name:"Sprungschlag", dmg:45, cd:6000, emoji:"💥", color:"#ff6b6b", special:"leap", level:3, targeted:true},
+    {name:"Klingenwirbel", dmg:55, cd:7000, emoji:"🌀", color:"#00ced1", special:"spin", level:6},
+    {name:"Blutopfer", dmg:0, cd:12000, emoji:"🩸", color:"#8b0000", special:"selfBuff", level:9},
+    {name:"Zorn des Titans", dmg:95, cd:16000, emoji:"⚡", color:"#ffff00", special:"thunder", level:12, targeted:true}
+  ],
+  Hexenmeister: [
+    {name:"Schattenriss", dmg:40, cd:4500, emoji:"🕳️", color:"#4b0082", special:"rift", level:3, targeted:true},
+    {name:"Seelenbrand", dmg:28, cd:3000, emoji:"🔥", color:"#ff4500", special:"dot", level:6, targeted:true},
+    {name:"Dämonenpakt", dmg:0, cd:15000, emoji:"😈", color:"#ffd93d", special:"summon", level:9},
+    {name:"Höllensturm", dmg:80, cd:14000, emoji:"☄️", color:"#ff2d55", special:"meteor", level:12, targeted:true}
+  ]
+};
+
+const passiveAbilities = { /* unchanged (kept) */
+  Magier: [
+    {name:"Mana-Regen", desc:"Cooldowns 20% schneller", level:2, type:"cooldown"},
+    {name:"Magische Rüstung", desc:"-30% Schaden", level:4, type:"defense"},
+    {name:"Elementar-Meister", desc:"+50% Skill-Schaden", level:5, type:"damage"},
+    {name:"Arkanes Echo", desc:"20% Chance auf 2x Schaden", level:7, type:"crit"}
+  ],
+  Jäger: [
+    {name:"Schnelle Reflexe", desc:"+50% Bewegung", level:2, type:"speed"},
+    {name:"Präzision", desc:"+40% Skill-Schaden", level:4, type:"damage"},
+    {name:"Überlebens-Instinkt", desc:"2 HP/Sek Regen", level:5, type:"regen"},
+    {name:"Kritischer Treffer", desc:"30% Insta-Kill", level:8, type:"instakill"}
+  ],
+  Krieger: [
+    {name:"Eiserne Haut", desc:"-40% Schaden", level:2, type:"defense"},
+    {name:"Kampfrausch", desc:"+60% Skill-Schaden", level:4, type:"damage"},
+    {name:"Zweite Chance", desc:"1x bei 1 HP überleben", level:5, type:"revive"},
+    {name:"Titanen-Stärke", desc:"2x HP-Regen", level:8, type:"regen"}
+  ],
+  Paladin: [
+    {name:"Heilige Aura", desc:"+30 Max HP", level:2, type:"maxHp"},
+    {name:"Göttliche Kraft", desc:"+40% Skill-Schaden", level:4, type:"damage"},
+    {name:"Selbstheilung", desc:"3 HP/Sek Regen", level:5, type:"regen"},
+    {name:"Unverwundbar", desc:"-50% Schaden", level:8, type:"defense"}
+  ],
+  Assassine: [
+    {name:"Schattenläufer", desc:"+60% Bewegung", level:2, type:"speed"},
+    {name:"Tödliche Präzision", desc:"+70% Skill-Schaden", level:4, type:"damage"},
+    {name:"Kritische Meister", desc:"40% Chance 2x Schaden", level:5, type:"crit"},
+    {name:"Todesurteil", desc:"50% Insta-Kill", level:8, type:"instakill"}
+  ],
+  Nekromant: [
+    {name:"Untote Essenz", desc:"+25 Max HP", level:2, type:"maxHp"},
+    {name:"Dunkle Macht", desc:"+50% Skill-Schaden", level:4, type:"damage"},
+    {name:"Seelen-Absorption", desc:"4 HP/Sek Regen", level:5, type:"regen"},
+    {name:"Armee der Toten", desc:"2x Minion Schaden", level:8, type:"minionDamage"}
+  ],
+  Druide: [
+    {name:"Grünes Herz", desc:"3 HP/Sek Regen", level:2, type:"regen"},
+    {name:"Wildwuchs", desc:"+40% Skill-Schaden", level:4, type:"damage"},
+    {name:"Rindenhaut", desc:"-35% Schaden", level:5, type:"defense"},
+    {name:"Naturkrit", desc:"20% Chance 2x Schaden", level:7, type:"crit"}
+  ],
+  Berserker: [
+    {name:"Blutrausch", desc:"+50% Skill-Schaden", level:2, type:"damage"},
+    {name:"Zäher Schädel", desc:"-30% Schaden", level:4, type:"defense"},
+    {name:"Adrenalin", desc:"+60% Bewegung", level:5, type:"speed"},
+    {name:"Todeslust", desc:"30% Insta-Kill (kleine Mobs)", level:8, type:"instakill"}
+  ],
+  Hexenmeister: [
+    {name:"Verderbnis", desc:"+50% Skill-Schaden", level:2, type:"damage"},
+    {name:"Dunkler Fokus", desc:"Cooldowns 20% schneller", level:4, type:"cooldown"},
+    {name:"Seelenschutz", desc:"-30% Schaden", level:5, type:"defense"},
+    {name:"Schattentreffer", desc:"20% Chance auf 2x Schaden", level:7, type:"crit"}
+  ]
+};
+
+const classEmojis = {
+  Magier: "🧙‍♂️", Jäger: "🏹", Krieger: "⚔️", Paladin: "🛡️", Assassine: "🗡️", Nekromant: "💀",
+  Druide: "🌿", Berserker: "🩸", Hexenmeister: "🕯️"
+};
+
+/* ---------------- Loot System ---------------- */
+const lootTable = [
+  {name:"Trank", rarity:"common", effect:{type:"heal", value:35}},
+  {name:"Eisenring", rarity:"rare", effect:{type:"maxHp", value:25}},
+  {name:"Krit-Amulett", rarity:"epic", effect:{type:"critPlus", value:0.10}},
+  {name:"Legendäre Klinge", rarity:"legendary", effect:{type:"dmgMulti", value:0.15}}
+];
+
+function rarityRoll() {
+  const r = Math.random();
+  if (r < 0.60) return "common";
+  if (r < 0.85) return "rare";
+  if (r < 0.97) return "epic";
+  return "legendary";
+}
+function rollLoot(count=1) {
+  const drops = [];
+  for (let i=0;i<count;i++){
+    const rar = rarityRoll();
+    const options = lootTable.filter(x => x.rarity === rar);
+    drops.push(options[Math.floor(Math.random()*options.length)]);
+  }
+  return drops;
+}
+function addLoot(drops) {
+  if (!drops || drops.length===0) return;
+  player.inventory.push(...drops);
+
+  const html = drops.map(d => `<div class="rarity-${d.rarity}">• ${d.name} (${d.rarity})</div>`).join("");
+  lootLines.innerHTML = (lootLines.textContent.includes("Noch nichts") ? "" : lootLines.innerHTML) + html;
+
+  const g = 12 * drops.length + (drops.some(d=>d.rarity==="legendary") ? 60 : 0);
+  player.gold += g;
+  showToast(`+${g} Gold`);
+  updateHUD();
+}
+function applyItemEffect(item) {
+  if (!item || !item.effect) return;
+  const e = item.effect;
+  if (e.type === "heal") healPlayer(e.value);
+  if (e.type === "maxHp") { player.maxHp += e.value; player.hp += e.value; updateHUD(); }
+  if (e.type === "critPlus") { player.extraCrit = (player.extraCrit || 0) + e.value; }
+  if (e.type === "dmgMulti") { player.extraDmg = (player.extraDmg || 0) + e.value; }
+}
+
+/* ---------------- Shop ---------------- */
+function toggleShop(open){
+  if (!player.class) return;
+  shopModal.style.display = open ? "flex" : "none";
+  shopGoldEl.textContent = player.gold;
+}
+function shopBuy(kind){
+  const costs = { potion:30, maxhp:80, dmg:120, crit:110, cdr:140, range:90 };
+  const c = costs[kind];
+  if (player.gold < c){
+    showToast("Zu wenig Gold!");
+    return;
+  }
+  player.gold -= c;
+
+  if (kind === "potion"){
+    const item = {name:"Trank", rarity:"common", effect:{type:"heal", value:35}};
+    player.inventory.push(item);
+    lootLines.innerHTML += `<div class="rarity-common">• Shop: Trank</div>`;
+    showToast("Trank gekauft ✅");
+  }
+  if (kind === "maxhp"){
+    player.maxHp += 25;
+    player.hp += 25;
+    showToast("Max HP +25 ✅");
+  }
+  if (kind === "dmg"){
+    player.extraDmg = (player.extraDmg||0) + 0.10;
+    showToast("Schaden +10% ✅");
+  }
+  if (kind === "crit"){
+    player.extraCrit = (player.extraCrit||0) + 0.10;
+    showToast("Crit +10% ✅");
+  }
+  if (kind === "cdr"){
+    player.shopCdr = Math.min(0.55, (player.shopCdr||0) + 0.10);
+    showToast(`Cooldown -${Math.round(player.shopCdr*100)}% ✅`);
+  }
+  if (kind === "range"){
+    player.skillRange += 20;
+    showToast("Range +20 ✅");
+  }
+
+  updateHUD();
+  shopGoldEl.textContent = player.gold;
+}
+
+/* ---------------- Targeting ---------------- */
+game.addEventListener('mousemove', e => {
+  const rect = game.getBoundingClientRect();
+  mouseX = e.clientX - rect.left;
+  mouseY = e.clientY - rect.top;
+  if (targetingSkill && targetLine) updateTargetLine();
+});
+game.addEventListener('click', e => {
+  if (targetingSkill) {
+    executeTargetedSkill(targetingSkill.skill, targetingSkill.btn, mouseX, mouseY);
+    cancelTargeting();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && targetingSkill) cancelTargeting();
+});
+
+function updateTargetLine() {
+  if (!targetLine) return;
+  const dx = mouseX - player.x - 20;
+  const dy = mouseY - player.y - 20;
+  const angle = Math.atan2(dy, dx);
+  const length = Math.sqrt(dx*dx + dy*dy);
+  targetLine.style.left = (player.x + 20) + 'px';
+  targetLine.style.top = (player.y + 20) + 'px';
+  targetLine.style.width = length + 'px';
+  targetLine.style.transform = `rotate(${angle}rad)`;
+}
+function cancelTargeting() {
+  if (targetLine && targetLine.parentNode) game.removeChild(targetLine);
+  targetLine = null;
+  targetingSkill = null;
+  game.classList.remove('targeting');
+  document.querySelectorAll('.skill-btn').forEach(btn => btn.classList.remove('targeted'));
+}
+
+/* ---------------- Class select / Setup ---------------- */
+function selectClass(className) {
+  const name = playerNameInput.value.trim() || 'Spieler';
+  player.name = name;
+  player.class = className;
+  player.role = null;
+  player.wave = 1;
+  waveEl.textContent = 1;
+
+  player.abilities = [...baseSkills[className]];
+  player.passives = [];
+  player.inventory = [];
+  player.gold = 0;
+  player.extraCrit = 0;
+  player.extraDmg = 0;
+  player.shopCdr = 0;
+
+  classNameEl.textContent = className;
+  classSelect.style.display = "none";
+
+  setupSkills();
+  initGame();
+  broadcastPlayerState();
+}
+
+function setupSkills() {
+  skillsDiv.innerHTML = "";
+  player.abilities.forEach((skill, idx) => {
+    const btn = document.createElement("div");
+    btn.classList.add("skill-btn");
+    if (skill.isNew) {
+      btn.classList.add("new-skill");
+      setTimeout(() => btn.classList.remove("new-skill"), 3000);
+    }
+    btn.innerHTML = `${skill.emoji}<div class="skill-name">${skill.name}</div><div class="cooldown-overlay"></div>`;
+    btn.dataset.index = idx;
+    btn.onclick = () => {
+      if (skill.targeted) startTargeting(skill, btn);
+      else useSkill(skill, btn);
+    };
+    btn.onmouseenter = () => showRangeIndicator(skill);
+    btn.onmouseleave = () => hideRangeIndicator();
+    skillsDiv.appendChild(btn);
+  });
+}
+function startTargeting(skill, btn) {
+  if (player.cooldowns[skill.name]) return;
+  cancelTargeting();
+  targetingSkill = {skill, btn};
+  game.classList.add('targeting');
+  btn.classList.add('targeted');
+  targetLine = document.createElement('div');
+  targetLine.classList.add('target-line');
+  game.appendChild(targetLine);
+  updateTargetLine();
+}
+
+/* ---------------- Helpers ---------------- */
+function getDistance(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+function getDistanceToPoint(obj, x, y) {
+  const dx = (obj.x + 20) - x;
+  const dy = (obj.y + 20) - y;
+  return Math.sqrt(dx*dx + dy*dy);
+}
+function createSkillEffect(x, y, color) {
+  const effect = document.createElement("div");
+  effect.classList.add("skill-effect");
+  effect.style.left = x + "px";
+  effect.style.top = y + "px";
+  effect.style.background = `radial-gradient(circle, ${color} 0%, transparent 70%)`;
+  game.appendChild(effect);
+  setTimeout(() => effect.parentNode && game.removeChild(effect), 600);
+}
+function showDamage(x, y, damage, isHeal = false) {
+  const dmgText = document.createElement("div");
+  dmgText.classList.add("damage-text");
+  if (isHeal) dmgText.classList.add("heal-text");
+  dmgText.textContent = (isHeal ? "+" : "-") + damage;
+  dmgText.style.left = x + 20 + "px";
+  dmgText.style.top = y + "px";
+  game.appendChild(dmgText);
+  setTimeout(() => dmgText.parentNode && game.removeChild(dmgText), 1000);
+}
+function showRangeIndicator(skill) {
+  if (!rangeIndicator) {
+    rangeIndicator = document.createElement("div");
+    rangeIndicator.classList.add("range-indicator");
+    game.appendChild(rangeIndicator);
+  }
+  const range = (skill.special === "aoe" || skill.special === "meteor" || skill.special === "storm") ? player.skillRange * 2 : player.skillRange;
+  rangeIndicator.style.width = range * 2 + "px";
+  rangeIndicator.style.height = range * 2 + "px";
+  rangeIndicator.style.left = (player.x - range + 20) + "px";
+  rangeIndicator.style.top = (player.y - range + 20) + "px";
+  rangeIndicator.style.display = "block";
+}
+function hideRangeIndicator() {
+  if (rangeIndicator) rangeIndicator.style.display = "none";
+}
+
+function updateHUD() {
+  const hpPercent = (player.hp / player.maxHp) * 100;
+  hpFill.style.width = hpPercent + "%";
+  hpFill.textContent = `${Math.max(0, Math.floor(player.hp))}/${player.maxHp}`;
+  const xpNeeded = player.level * 100;
+  const xpPercent = (player.xp / xpNeeded) * 100;
+  xpFill.style.width = xpPercent + "%";
+  xpFill.textContent = `${player.xp}/${xpNeeded}`;
+  waveEl.textContent = player.wave;
+  goldEl.textContent = player.gold;
+  shopGoldEl.textContent = player.gold;
+}
+function updatePlayerPos() {
+  if (player.el) {
+    player.el.style.left = player.x + "px";
+    player.el.style.top = player.y + "px";
+  }
+}
+function updateEnemyHealth(enemy) {
+  if (!enemy.el) return;
+  const healthFill = enemy.el.querySelector(".health-fill");
+  if (healthFill) {
+    const percent = (enemy.hp / enemy.maxHp) * 100;
+    healthFill.style.width = percent + "%";
+  }
+}
+function updateMinionHealth(minion) {
+  if (!minion.el) return;
+  const healthFill = minion.el.querySelector(".health-fill");
+  if (healthFill) {
+    const percent = (minion.hp / minion.maxHp) * 100;
+    healthFill.style.width = percent + "%";
+  }
+}
+function updateBossHud(boss) {
+  const p = Math.max(0, (boss.hp / boss.maxHp) * 100);
+  bossHpFill.style.width = p + "%";
+  bossHpFill.textContent = `${Math.max(0, Math.floor(boss.hp))}/${boss.maxHp}`;
+}
+
+/* ---------------- Passives ---------------- */
+function getPassiveBonus(type) {
+  let bonus = 1;
+  player.passives.forEach(p => {
+    if (p.type === "damage" && type === "damage") bonus += 0.5;
+    if (p.type === "cooldown" && type === "cooldown") bonus = 0.8;
+  });
+  return bonus;
+}
+function updatePassiveDisplay() {
+  if (player.passives.length === 0) passiveList.textContent = "Keine";
+  else passiveList.innerHTML = player.passives.map(p => `<span class="passive-item">${p.name}</span>`).join("");
+}
+
+/* ---------------- Combat: Heal / Damage ---------------- */
+function healPlayer(amount) {
+  const rm = player.role ? roleMods[player.role] : {dmg:1, heal:1, taken:1};
+  amount = Math.floor(amount * rm.heal);
+
+  player.hp = Math.min(player.maxHp, player.hp + amount);
+  showDamage(player.x, player.y, amount, true);
+  updateHUD();
+  broadcastPlayerState();
+}
+
+function damagePlayer(damage) {
+  const rm = player.role ? roleMods[player.role] : {dmg:1, heal:1, taken:1};
+  damage = Math.floor(damage * rm.taken);
+
+  if (player.divineShielded) return;
+  if (player.shielded) damage = Math.floor(damage * 0.2);
+  else if (player.passives.find(p => p.type === "defense")) damage = Math.floor(damage * 0.6);
+  if (player.raging) damage = Math.floor(damage * 0.5);
+  if (player.stealth) damage = Math.floor(damage * 0.3);
+  if (player.bearForm) damage = Math.floor(damage * 0.7);
+
+  player.hp -= damage;
+  showDamage(player.x, player.y, damage);
+  updateHUD();
+  broadcastPlayerState();
+
+  if (player.hp <= 0) {
+    const hasRevive = player.passives.find(p => p.type === "revive" && !p.used);
+    if (hasRevive) {
+      player.hp = 1;
+      hasRevive.used = true;
+      showReviveMessage();
+    } else {
+      gameOver();
+    }
+  }
+}
+
+function showReviveMessage() {
+  const msg = document.createElement("div");
+  msg.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:36px;color:#ffd93d;font-weight:bold;z-index:999;text-shadow:3px 3px 6px #000;animation:dmgFloat 2s forwards;";
+  msg.textContent = "💫 ZWEITE CHANCE! 💫";
+  game.appendChild(msg);
+  setTimeout(() => msg.parentNode && game.removeChild(msg), 2000);
+}
+
+function damageEnemy(enemy, damage) {
+  if (enemy.cursed && Date.now() < enemy.cursed.until) damage = Math.floor(damage * enemy.cursed.mult);
+
+  const hasCrit = player.passives.find(p => p.type === "crit");
+  const hasInstakill = player.passives.find(p => p.type === "instakill");
+  const extraCrit = player.extraCrit || 0;
+  if ((hasCrit && Math.random() < 0.2) || (extraCrit > 0 && Math.random() < extraCrit)) damage *= 2;
+
+  if (hasInstakill && Math.random() < 0.3 && enemy.maxHp < 140 && !enemy.isBoss) damage = enemy.hp;
+  if (player.bloodlust) damage = Math.floor(damage * 1.5);
+
+  const extraDmg = player.extraDmg || 0;
+  damage = Math.floor(damage * (1 + extraDmg));
+
+  enemy.hp -= damage;
+  showDamage(enemy.x, enemy.y, damage);
+  updateEnemyHealth(enemy);
+  if (enemy.isBoss) updateBossHud(enemy);
+
+  if (enemy.hp <= 0) {
+    enemy.hp = 0;
+    const wasBoss = !!enemy.isBoss;
+    if (wasBoss && enemy.attackTimer) clearInterval(enemy.attackTimer);
+
+    enemy.el.style.opacity = "0";
+    setTimeout(() => {
+      if (enemy.el && enemy.el.parentNode) game.removeChild(enemy.el);
+      enemies = enemies.filter(e => e !== enemy);
+
+      if (wasBoss) {
+        bossHud.style.display = "none";
+        const drops = rollLoot(3);
+        addLoot(drops);
+
+        const pop = document.createElement("div");
+        pop.classList.add("level-up-modal");
+        pop.id = "bossloot-modal";
+        pop.innerHTML = `<h2>🎉 BOSS BESIEGT! 🎉</h2>
+          <p>Loot erhalten:</p>
+          <div style="text-align:left;margin-top:10px;">
+            ${drops.map(d=>`<div class="rarity-${d.rarity}">• ${d.name} (${d.rarity})</div>`).join("")}
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:#ccc;">Tipp: Shop mit B öffnen</div>
+          <div class="ability-choice" onclick="(function(){const m=document.getElementById('bossloot-modal'); if(m) game.removeChild(m); nextWave();})()"
+               style="margin-top:15px;">
+            <h3>➡️ Weiter</h3><p>Nächste Welle starten</p>
+          </div>`;
+        game.appendChild(pop);
+      } else {
+        if (enemies.length === 0) setTimeout(nextWave, 800);
+      }
+    }, 300);
+
+    gainXP(50 + player.level * 10 + (wasBoss ? 220 : 0));
+  }
+}
+
+/* ---------------- Skills execution ---------------- */
+function startCooldown(skill, btn, overlay) {
+  player.cooldowns[skill.name] = true;
+  const passiveCd = getPassiveBonus("cooldown");
+  const shopCd = 1 - (player.shopCdr || 0);
+  const cdMult = passiveCd * shopCd;
+
+  let remaining = Math.floor(skill.cd * cdMult);
+  overlay.style.height = "100%";
+  const cdInterval = setInterval(() => {
+    remaining -= 100;
+    overlay.style.height = (remaining / (skill.cd * cdMult) * 100) + "%";
+    if (remaining <= 0) {
+      clearInterval(cdInterval);
+      btn.classList.remove("cooling");
+      overlay.style.height = "0%";
+      player.cooldowns[skill.name] = false;
+    }
+  }, 100);
+}
+
+function executeTargetedSkill(skill, btn, targetX, targetY) {
+  if (player.cooldowns[skill.name]) return;
+  const overlay = btn.querySelector(".cooldown-overlay");
+  btn.classList.add("cooling");
+
+  const dmgBoost = getPassiveBonus("damage");
+  const rm = player.role ? roleMods[player.role] : {dmg:1, heal:1, taken:1};
+  let finalDmg = Math.floor((skill.dmg || 0) * dmgBoost * rm.dmg);
+
+  if (skill.special === "teleport" || skill.special === "blink") {
+    player.x = Math.max(0, Math.min(game.clientWidth - 40, targetX - 20));
+    player.y = Math.max(0, Math.min(game.clientHeight - 40, targetY - 20));
+    updatePlayerPos();
+    createSkillEffect(player.x, player.y, skill.color);
+    if (skill.special === "blink") {
+      player.stealth = true;
+      setTimeout(() => player.stealth = false, 2000);
+    }
+    broadcastPlayerState();
+  } else if (skill.special === "leap") {
+    player.x = Math.max(0, Math.min(game.clientWidth - 40, targetX - 20));
+    player.y = Math.max(0, Math.min(game.clientHeight - 40, targetY - 20));
+    updatePlayerPos();
+    createSkillEffect(player.x, player.y, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < 90) damageEnemy(e, finalDmg);
+    });
+    broadcastPlayerState();
+  } else if (skill.special === "meteor" || skill.special === "bomb" || skill.special === "thunder" || skill.special === "rift") {
+    const radius = (skill.special === "meteor") ? 110 : (skill.special === "bomb") ? 120 : (skill.special === "thunder") ? 85 : 95;
+    createSkillEffect(targetX, targetY, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < radius) damageEnemy(e, finalDmg);
+    });
+  } else if (skill.special === "retribution") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "poisonBlade") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        damageEnemy(e, finalDmg);
+        e.poisoned = {dmg: 8, ticks: 6};
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "assassinate") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        const critDmg = finalDmg * (e.hp < e.maxHp * 0.3 ? 2 : 1);
+        damageEnemy(e, critDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "execute") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        const mult = (e.hp < e.maxHp * 0.3) ? 2 : 1;
+        damageEnemy(e, Math.floor(finalDmg * mult));
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "lifesteal") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        damageEnemy(e, finalDmg);
+        healPlayer(Math.floor(finalDmg * 0.5));
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "undeadWave") {
+    createSkillEffect(targetX, targetY, skill.color);
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 95) damageEnemy(e, finalDmg);
+    });
+  } else if (skill.special === "root") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 60) {
+        damageEnemy(e, finalDmg);
+        e.rooted = { until: Date.now() + 2000 };
+        e.slowed = true;
+        setTimeout(() => { e.slowed = false; }, 3500);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "curse") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 60) {
+        damageEnemy(e, finalDmg);
+        e.cursed = { mult: 1.25, until: Date.now() + 6000 };
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "dot") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 60) {
+        damageEnemy(e, finalDmg);
+        e.burning = { dmg: 10, ticks: 6 };
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else {
+    let hit = false;
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistanceToPoint(e, targetX, targetY) < 55) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+        hit = true;
+      }
+    });
+    if (!hit) createSkillEffect(targetX, targetY, "#666");
+  }
+
+  startCooldown(skill, btn, overlay);
+}
+
+function useSkill(skill, btn) {
+  if (player.cooldowns[skill.name]) return;
+  const overlay = btn.querySelector(".cooldown-overlay");
+  btn.classList.add("cooling");
+
+  const dmgBoost = getPassiveBonus("damage");
+  const rm = player.role ? roleMods[player.role] : {dmg:1, heal:1, taken:1};
+  let finalDmg = Math.floor((skill.dmg || 0) * dmgBoost * rm.dmg);
+
+  if (skill.special === "speed") {
+    player.speedBoost = true;
+    setTimeout(() => player.speedBoost = false, 3000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "shield") {
+    player.shielded = true;
+    setTimeout(() => player.shielded = false, 4000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "heal") {
+    healPlayer(50 + player.level * 5);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "bigHeal") {
+    healPlayer(120 + player.level * 8);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "stealth") {
+    player.stealth = true;
+    setTimeout(() => player.stealth = false, 4000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "summon") {
+    const minion = {
+      x: player.x + (Math.random() - 0.5) * 60,
+      y: player.y + (Math.random() - 0.5) * 60,
+      hp: 50 + player.level * 10,
+      maxHp: 50 + player.level * 10,
+      dmg: 15 + player.level * 2,
+      el: null
+    };
+    const minionEl = document.createElement("div");
+    minionEl.classList.add("minion");
+    minionEl.innerHTML = `💀<div class="health-bar"><div class="health-fill"></div></div>`;
+    minionEl.style.left = minion.x + "px";
+    minionEl.style.top = minion.y + "px";
+    minion.el = minionEl;
+    game.appendChild(minionEl);
+    player.minions.push(minion);
+    updateMinionHealth(minion);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "aoe" || skill.special === "storm" || skill.special === "deathAura") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange * 2) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "slow") {
+    enemies.forEach(e => {
+      if (e.hp > 0) {
+        e.slowed = true;
+        setTimeout(() => e.slowed = false, 5000);
+      }
+    });
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "spin") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+      }
+    });
+  } else if (skill.special === "rage") {
+    player.raging = true;
+    setTimeout(() => player.raging = false, 10000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "divineShield") {
+    player.divineShielded = true;
+    setTimeout(() => player.divineShielded = false, 5000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "healWave") {
+    healPlayer(80);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "resurrect") {
+    healPlayer(player.maxHp);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "bloodlust") {
+    player.bloodlust = true;
+    setTimeout(() => player.bloodlust = false, 6000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "selfBuff") {
+    damagePlayer(18 + Math.floor(player.level * 1.2));
+    player.bloodlust = true;
+    setTimeout(() => player.bloodlust = false, 6000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "bearForm") {
+    player.bearForm = true;
+    player.maxHp += 60;
+    player.hp += 60;
+    updateHUD();
+    createSkillEffect(player.x, player.y, skill.color);
+    setTimeout(() => {
+      player.bearForm = false;
+      player.maxHp -= 60;
+      player.hp = Math.min(player.hp, player.maxHp);
+      updateHUD();
+    }, 8000);
+  } else if (skill.special === "skeletonArmy") {
+    for (let i = 0; i < 3; i++) {
+      const minion = {
+        x: player.x + (Math.random() - 0.5) * 80,
+        y: player.y + (Math.random() - 0.5) * 80,
+        hp: 40 + player.level * 8,
+        maxHp: 40 + player.level * 8,
+        dmg: 12 + player.level * 2,
+        el: null
+      };
+      const minionEl = document.createElement("div");
+      minionEl.classList.add("minion");
+      minionEl.innerHTML = `☠️<div class="health-bar"><div class="health-fill"></div></div>`;
+      minionEl.style.left = minion.x + "px";
+      minionEl.style.top = minion.y + "px";
+      minion.el = minionEl;
+      game.appendChild(minionEl);
+      player.minions.push(minion);
+      updateMinionHealth(minion);
+    }
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "vision") {
+    player.skillRange *= 2;
+    setTimeout(() => player.skillRange /= 2, 8000);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "taunt") {
+    player.shielded = true;
+    setTimeout(() => player.shielded = false, 2500);
+    createSkillEffect(player.x, player.y, skill.color);
+  } else if (skill.special === "poison") {
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange * 1.5) {
+        e.poisoned = {dmg: 7, ticks: 6};
+        createSkillEffect(e.x, e.y, "#32cd32");
+      }
+    });
+  } else {
+    let hit = false;
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(player, e) < player.skillRange) {
+        damageEnemy(e, finalDmg);
+        createSkillEffect(e.x, e.y, skill.color);
+        hit = true;
+      }
+    });
+    if (!hit) createSkillEffect(player.x, player.y, "#666");
+  }
+
+  startCooldown(skill, btn, overlay);
+}
+
+/* ---------------- XP / Level up / Role evolution ---------------- */
+function gainXP(amount) {
+  player.xp += amount;
+  updateHUD();
+  checkLevelUp();
+}
+function checkLevelUp() {
+  const xpNeeded = player.level * 100;
+  if (player.xp >= xpNeeded) {
+    player.level++;
+    player.xp -= xpNeeded;
+    player.maxHp += 20;
+    player.hp = player.maxHp;
+    player.skillRange += 10;
+
+    levelEl.textContent = player.level;
+    updateHUD();
+
+    if (player.level === 10 && !player.role) {
+      showRoleEvolutionChoice();
+      broadcastPlayerState();
+      return;
+    }
+
+    if (player.level % 3 === 0) showLevelUpChoice();
+    else showLevelUpMessage();
+
+    broadcastPlayerState();
+  }
+}
+function showRoleEvolutionChoice() {
+  const modal = document.createElement("div");
+  modal.classList.add("level-up-modal");
+  modal.id = "role-modal";
+  modal.innerHTML = `
+    <h2>🧬 ENTWICKLUNG! 🧬</h2>
+    <p>Ab Level 10 wählst du deine Spezialisierung:</p>
+
+    <div class="ability-choice" onclick="chooseRole('healer')">
+      <h3>💚 Heiler</h3>
+      <p>Starke Heilung, stabiler Support (+🩺 Sofortheilung)</p>
+    </div>
+
+    <div class="ability-choice" onclick="chooseRole('tank')">
+      <h3>🛡️ Tank</h3>
+      <p>Viel weniger Schaden, perfekt für Bossfights (+📢 Spott)</p>
+    </div>
+
+    <div class="ability-choice" onclick="chooseRole('dps')">
+      <h3>⚔️ Damage Dealer</h3>
+      <p>Massiver Schaden, aber fragiler (+🎯 Tödlicher Stoß)</p>
+    </div>
+  `;
+  game.appendChild(modal);
+}
+function chooseRole(role) {
+  player.role = role;
+  const extra = {...roleBonusSkill[role], isNew:true};
+  player.abilities.push(extra);
+  setupSkills();
+
+  const modal = document.getElementById("role-modal");
+  if (modal && modal.parentNode) game.removeChild(modal);
+
+  showToast(`Spezialisierung: ${role.toUpperCase()}`);
+  broadcastPlayerState();
+  
+    // ✅ nach Rollenwahl Wave-Fortsetzung starten (weil nextWave vorher gestoppt wurde)
+  setTimeout(() => {
+    if (typeof _oldNextWave === "function") _oldNextWave();
+    else nextWave();
+  }, 50);
+
+}
+function showLevelUpChoice() {
+  const modal = document.createElement("div");
+  modal.classList.add("level-up-modal");
+  modal.id = "levelup-modal";
+
+  let choices = [];
+  const availableSkills = (levelSkills[player.class] || []).filter(s =>
+    s.level === player.level && !player.abilities.find(a => a.name === s.name)
+  );
+  const availablePassives = (passiveAbilities[player.class] || []).filter(p =>
+    p.level <= player.level && !player.passives.find(pa => pa.name === p.name)
+  );
+
+  if (availableSkills.length > 0) choices.push({type: "skill", data: availableSkills[0]});
+  if (availablePassives.length > 0) choices.push({type: "passive", data: availablePassives[0]});
+
+  if (choices.length === 0) {
+    showLevelUpMessage();
+    return;
+  }
+
+  let html = `<h2>⭐ LEVEL ${player.level}! ⭐</h2><p>Wähle eine neue Fähigkeit:</p>`;
+  choices.forEach((choice, idx) => {
+    if (choice.type === "skill") {
+      html += `<div class="ability-choice" onclick="chooseAbility(${idx})"><h3>${choice.data.emoji} ${choice.data.name}</h3><p>Neue Aktive Fähigkeit</p></div>`;
+    } else {
+      html += `<div class="ability-choice" onclick="chooseAbility(${idx})"><h3>🌟 ${choice.data.name}</h3><p>Passive Fähigkeit - ${choice.data.desc}</p></div>`;
+    }
+  });
+
+  modal.innerHTML = html;
+  game.appendChild(modal);
+  window.levelUpChoices = choices;
+}
+function chooseAbility(idx) {
+  const choice = window.levelUpChoices[idx];
+  if (!choice) return;
+
+  if (choice.type === "skill") {
+    choice.data.isNew = true;
+    player.abilities.push(choice.data);
+    setupSkills();
+  } else {
+    player.passives.push(choice.data);
+    if (choice.data.type === "maxHp") {
+      player.maxHp += 30;
+      player.hp += 30;
+    }
+    updatePassiveDisplay();
+  }
+
+  const modal = document.getElementById("levelup-modal");
+  if (modal && modal.parentNode) game.removeChild(modal);
+
+  showLevelUpMessage();
+}
+function showLevelUpMessage() {
+  const msg = document.createElement("div");
+  msg.style.cssText = "position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:48px;color:#ffd93d;font-weight:bold;z-index:999;text-shadow:3px 3px 6px #000;animation:dmgFloat 2s forwards;";
+  msg.textContent = "⭐ LEVEL UP! ⭐";
+  game.appendChild(msg);
+  setTimeout(() => msg.parentNode && game.removeChild(msg), 2000);
+}
+
+/* ---------------- Waves / Boss ---------------- */
+function nextWave() {
+  player.wave++;
+  waveEl.textContent = player.wave;
+
+  const isBossWave = (player.wave % 5 === 0);
+  enemyCount = Math.min(22, 3 + Math.floor(player.wave * 1.2));
+
+  if (isBossWave) {
+    showToast("👑 Boss-Welle!");
+  }
+  spawnEnemies(isBossWave);
+}
+
+function spawnEnemies(isBossWave=false) {
+  enemies.forEach(e => e.el && e.el.parentNode && game.removeChild(e.el));
+  enemies = [];
+  bossHud.style.display = "none";
+
+  if (isBossWave) { spawnBoss(); return; }
+
+  for (let i = 0; i < enemyCount; i++) {
+    const enemyEl = document.createElement("div");
+    enemyEl.classList.add("enemy");
+    enemyEl.innerHTML = `👾<div class="health-bar"><div class="health-fill"></div></div>`;
+
+    const hpBase = 30 + (player.level * 10) + (player.wave * 8);
+    const enemy = {
+      x: Math.random() * (game.clientWidth - 40),
+      y: Math.random() * (game.clientHeight - 40),
+      hp: hpBase,
+      maxHp: hpBase,
+      el: enemyEl,
+      slowed:false,
+      rooted:null,
+      poisoned:null,
+      burning:null,
+      cursed:null,
+      isBoss:false
+    };
+
+    enemyEl.style.left = enemy.x + "px";
+    enemyEl.style.top = enemy.y + "px";
+    enemies.push(enemy);
+    game.appendChild(enemyEl);
+    updateEnemyHealth(enemy);
+  }
+}
+
+function spawnBoss() {
+  const bossEl = document.createElement("div");
+  bossEl.classList.add("enemy");
+  bossEl.style.fontSize = "44px";
+  bossEl.innerHTML = `👑<div class="health-bar" style="width:80px;"><div class="health-fill"></div></div>`;
+
+  /* ✅ Boss schwächer (HP runter) */
+  const bossHp = Math.floor(450 + player.level * 55 + player.wave * 90);
+
+  const boss = {
+    isBoss:true,
+    x: (game.clientWidth/2) - 20,
+    y: 80,
+    hp: bossHp,
+    maxHp: bossHp,
+    el: bossEl,
+    phase:1,
+    slowed:false,
+    rooted:null,
+    poisoned:null,
+    burning:null,
+    cursed:null
+  };
+
+  bossEl.style.left = boss.x + "px";
+  bossEl.style.top = boss.y + "px";
+  enemies.push(boss);
+  game.appendChild(bossEl);
+
+  bossHud.style.display = "block";
+  updateBossHud(boss);
+
+  if (boss.attackTimer) clearInterval(boss.attackTimer);
+  boss.attackTimer = setInterval(() => bossAttack(boss), 1700);
+}
+
+function bossAttack(boss) {
+  if (!boss || boss.hp <= 0) return;
+  if (boss.hp < boss.maxHp * 0.5) boss.phase = 2;
+
+  /* ✅ Boss Schaden etwas runter */
+  const base = Math.floor(12 + player.level * 1.6 + player.wave * 0.65);
+
+  // Visueller Warnkreis (telegraph)
+  createSkillEffect(player.x, player.y, "#ff2d55");
+
+  // ✅ Boss schießt jetzt sichtbare Projektile
+  const fromX = boss.x + 18;
+  const fromY = boss.y + 22;
+  const toX = player.x + 18;
+  const toY = player.y + 22;
+
+  if (boss.phase === 1) {
+    spawnProjectile(fromX, fromY, toX, toY, 5.2, base);
+  } else {
+    // phase2: 3-shot spread
+    spawnProjectile(fromX, fromY, toX, toY, 5.6, base + 4);
+    spawnProjectile(fromX, fromY, toX + 60, toY, 5.4, base + 2);
+    spawnProjectile(fromX, fromY, toX - 60, toY, 5.4, base + 2);
+
+    // adds seltener als vorher
+    if (Math.random() < 0.40) {
+      for (let i=0;i<1;i++){
+        const addEl = document.createElement("div");
+        addEl.classList.add("enemy");
+        addEl.innerHTML = `👾<div class="health-bar"><div class="health-fill"></div></div>`;
+        const hpBase = 60 + player.level*10 + player.wave*9;
+        const add = {
+          x: Math.random()*(game.clientWidth-40),
+          y: 150+Math.random()*240,
+          hp: hpBase,
+          maxHp: hpBase,
+          el:addEl,
+          slowed:false,
+          rooted:null,
+          poisoned:null,
+          burning:null,
+          cursed:null,
+          isBoss:false
+        };
+        addEl.style.left = add.x+"px";
+        addEl.style.top = add.y+"px";
+        enemies.push(add);
+        game.appendChild(addEl);
+        updateEnemyHealth(add);
+      }
+    }
+  }
+}
+
+/* ---------------- Movement / AI ---------------- */
+function moveEnemies() {
+  enemies.forEach(e => {
+    if (e.hp <= 0) return;
+
+    if (e.rooted && Date.now() < e.rooted.until) {
+      // rooted: no movement
+    } else {
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      let speed = e.isBoss ? (e.slowed ? 0.6 : 0.95) : (e.slowed ? 0.6 : 1.6);
+      if (dist > 0) {
+        e.x += (dx / dist) * speed;
+        e.y += (dy / dist) * speed;
+      }
+
+      e.x = Math.max(0, Math.min(game.clientWidth - 40, e.x));
+      e.y = Math.max(0, Math.min(game.clientHeight - 40, e.y));
+      e.el.style.left = e.x + "px";
+      e.el.style.top = e.y + "px";
+    }
+  });
+}
+
+function moveMinions() {
+  player.minions.forEach(m => {
+    if (m.hp <= 0) return;
+    const nearestEnemy = enemies.reduce((nearest, e) => {
+      if (e.hp <= 0) return nearest;
+      const dist = getDistance(m, e);
+      if (!nearest || dist < getDistance(m, nearest)) return e;
+      return nearest;
+    }, null);
+
+    if (nearestEnemy) {
+      const dx = nearestEnemy.x - m.x;
+      const dy = nearestEnemy.y - m.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (dist > 35) {
+        m.x += (dx / dist) * 2;
+        m.y += (dy / dist) * 2;
+      } else {
+        if (!m.lastAttack || Date.now() - m.lastAttack > 1000) {
+          const minionDmgBoost = player.passives.find(p => p.type === "minionDamage") ? 2 : 1;
+          damageEnemy(nearestEnemy, Math.floor(m.dmg * minionDmgBoost));
+          m.lastAttack = Date.now();
+        }
+      }
+      m.x = Math.max(0, Math.min(game.clientWidth - 40, m.x));
+      m.y = Math.max(0, Math.min(game.clientHeight - 40, m.y));
+      m.el.style.left = m.x + "px";
+      m.el.style.top = m.y + "px";
+    }
+  });
+}
+
+function checkEnemyCollisions() {
+  enemies.forEach(e => {
+    if (e.hp > 0 && getDistance(player, e) < (e.isBoss ? 42 : 35)) {
+      if (!e.lastAttack || Date.now() - e.lastAttack > (e.isBoss ? 1200 : 1000)) {
+        // ✅ boss melee hit etwas runter
+        const dmg = (e.isBoss ? 12 : 10) + player.level * 2;
+        damagePlayer(dmg);
+        e.lastAttack = Date.now();
+      }
+    }
+    player.minions.forEach(m => {
+      if (m.hp > 0 && getDistance(m, e) < 35) {
+        if (!e.lastMinionAttack || Date.now() - e.lastMinionAttack > 1500) {
+          m.hp -= 8 + player.level;
+          updateMinionHealth(m);
+          if (m.hp <= 0) {
+            m.el.style.opacity = "0";
+            setTimeout(() => {
+              m.el && m.el.parentNode && game.removeChild(m.el);
+              player.minions = player.minions.filter(mi => mi !== m);
+            }, 300);
+          }
+          e.lastMinionAttack = Date.now();
+        }
+      }
+    });
+  });
+}
+
+/* ---------------- Status ticks: poison + burn + regen ---------------- */
+function tickStatuses() {
+  enemies.forEach(e => {
+    if (e.hp <= 0) return;
+
+    if (e.poisoned) {
+      e.hp -= e.poisoned.dmg;
+      showDamage(e.x, e.y, e.poisoned.dmg);
+      updateEnemyHealth(e);
+      if (e.isBoss) updateBossHud(e);
+      e.poisoned.ticks--;
+      if (e.poisoned.ticks <= 0) delete e.poisoned;
+      if (e.hp <= 0) damageEnemy(e, 0);
+    }
+
+    if (e.burning) {
+      e.hp -= e.burning.dmg;
+      showDamage(e.x, e.y, e.burning.dmg);
+      updateEnemyHealth(e);
+      if (e.isBoss) updateBossHud(e);
+      e.burning.ticks--;
+      if (e.burning.ticks <= 0) delete e.burning;
+      if (e.hp <= 0) damageEnemy(e, 0);
+    }
+  });
+}
+
+/* ---------------- Multiplayer (storage optional) ---------------- */
+function broadcastPlayerState() {
+  const state = {
+    id: player.id,
+    name: player.name,
+    x: player.x,
+    y: player.y,
+    hp: player.hp,
+    maxHp: player.maxHp,
+    level: player.level,
+    class: player.class
+  };
+  try {
+    window.storage.set(`player_${player.id}`, JSON.stringify(state), true);
+  } catch (e) {}
+}
+async function updateOtherPlayers() {
+  try {
+    const keys = await window.storage.list('player_', true);
+    if (!keys || !keys.keys) return;
+    const currentIds = new Set();
+
+    for (const key of keys.keys) {
+      if (key === `player_${player.id}`) continue;
+      try {
+        const result = await window.storage.get(key, true);
+        if (!result) continue;
+        const data = JSON.parse(result.value);
+        currentIds.add(data.id);
+
+        if (!otherPlayers[data.id]) {
+          const playerEl = document.createElement("div");
+          playerEl.classList.add("other-player");
+          playerEl.innerHTML = `${classEmojis[data.class] || '👤'}<div class="player-name">${data.name}</div>`;
+          game.appendChild(playerEl);
+          otherPlayers[data.id] = { el: playerEl, data: data };
+        }
+        otherPlayers[data.id].el.style.left = data.x + "px";
+        otherPlayers[data.id].el.style.top = data.y + "px";
+        otherPlayers[data.id].data = data;
+      } catch (e) {}
+    }
+
+    Object.keys(otherPlayers).forEach(id => {
+      if (!currentIds.has(id)) {
+        otherPlayers[id].el && otherPlayers[id].el.parentNode && game.removeChild(otherPlayers[id].el);
+        delete otherPlayers[id];
+      }
+    });
+
+    updatePlayerList();
+  } catch (e) {}
+}
+function updatePlayerList() {
+  playersOnline.innerHTML = `<div class="player-entry">🟢 ${player.name} (Du)</div>`;
+  Object.values(otherPlayers).forEach(p => {
+    playersOnline.innerHTML += `<div class="player-entry">🟢 ${p.data.name}</div>`;
+  });
+}
+
+/* ---------------- Game init / loops ---------------- */
+function initGame() {
+  game.querySelectorAll(".character,.enemy,.minion,.game-over,.level-up-modal,.projectile").forEach(n => n.remove());
+  enemies = [];
+  player.minions = [];
+  projectiles = [];
+
+  player.x = Math.floor(game.clientWidth/2);
+  player.y = Math.floor(game.clientHeight/2);
+
+  player.el = document.createElement("div");
+  player.el.classList.add("character");
+  player.el.innerHTML = `${classEmojis[player.class]}<div class="player-name">${player.name}</div>`;
+  game.appendChild(player.el);
+  updatePlayerPos();
+
+  player.wave = 1;
+  waveEl.textContent = 1;
+  enemyCount = 3;
+
+  spawnEnemies(false);
+  updateHUD();
+  updatePassiveDisplay();
+
+  setInterval(() => {
+    const regenBonus = player.passives.filter(p => p.type === "regen").length;
+    if (regenBonus > 0) {
+      player.hp = Math.min(player.maxHp, player.hp + (2 * regenBonus));
+      updateHUD();
+      broadcastPlayerState();
+    }
+  }, 1000);
+
+  setInterval(tickStatuses, 1000);
+
+  if (gameLoop) clearInterval(gameLoop);
+  gameLoop = setInterval(() => {
+    moveEnemies();
+    moveMinions();
+    checkEnemyCollisions();
+    stepProjectiles();   // ✅ projectile loop
+    updateOtherPlayers();
+  }, 100);
+
+  setInterval(broadcastPlayerState, 200);
+}
+
+/* ---------------- Input ---------------- */
+document.addEventListener("keydown", e => {
+  keys[e.key] = true;
+
+  // ✅ Shop toggle B
+  if (e.key === "b" || e.key === "B") toggleShop(shopModal.style.display !== "flex");
+
+  // ESC reset OR close shop first
+  if (e.key === "Escape") {
+    if (shopModal.style.display === "flex"){ toggleShop(false); return; }
+    if (targetingSkill) { cancelTargeting(); return; }
+  }
+
+  if (e.key === "Escape" && !targetingSkill) {
+    player.level = 1;
+    player.xp = 0;
+    player.hp = 100;
+    player.maxHp = 100;
+    player.role = null;
+    player.wave = 1;
+    enemyCount = 3;
+    player.skillRange = 150;
+
+    player.abilities = [...baseSkills[player.class]];
+    player.passives = [];
+    player.inventory = [];
+    player.gold = 0;
+    player.extraCrit = 0;
+    player.extraDmg = 0;
+    player.shopCdr = 0;
+
+    player.minions.forEach(m => m.el && m.el.parentNode && game.removeChild(m.el));
+    player.minions = [];
+    projectiles.forEach(p=>p.el && p.el.remove());
+    projectiles = [];
+
+    levelEl.textContent = 1;
+    waveEl.textContent = 1;
+    setupSkills();
+    updateHUD();
+    updatePassiveDisplay();
+    spawnEnemies(false);
+    bossHud.style.display = "none";
+    lootLines.textContent = "Noch nichts gedroppt.";
+  }
+
+  // use potion with I
+  if (e.key === "i" || e.key === "I") {
+    const idx = player.inventory.findIndex(it => it.effect?.type === "heal");
+    if (idx >= 0) {
+      const it = player.inventory.splice(idx,1)[0];
+      applyItemEffect(it);
+      lootLines.innerHTML += `<div class="rarity-${it.rarity}">✓ benutzt: ${it.name}</div>`;
+      showToast("Trank benutzt ✅");
+    } else {
+      showToast("Kein Trank 😭");
+    }
+  }
+
+  // skill hotkeys 1-6
+  if (e.key >= "1" && e.key <= "6") {
+    const idx = parseInt(e.key) - 1;
+    const btn = skillsDiv.children[idx];
+    if (btn && player.abilities[idx]) {
+      const skill = player.abilities[idx];
+      if (skill.targeted) startTargeting(skill, btn);
+      else useSkill(skill, btn);
+    }
+  }
+});
+document.addEventListener("keyup", e => { keys[e.key] = false; });
+
+// movement loop 60 fps
+setInterval(() => {
+  if (!player.class) return;
+
+  const baseSpeed = player.passives.find(p => p.type === "speed") ? 6 : 4;
+  const speed = (player.speedBoost || keys["Shift"]) ? baseSpeed * 1.5 : baseSpeed;
+
+  let moved = false;
+  if (keys["ArrowUp"] || keys["w"] || keys["W"]) { player.y -= speed; moved = true; }
+  if (keys["ArrowDown"] || keys["s"] || keys["S"]) { player.y += speed; moved = true; }
+  if (keys["ArrowLeft"] || keys["a"] || keys["A"]) { player.x -= speed; moved = true; }
+  if (keys["ArrowRight"] || keys["d"] || keys["D"]) { player.x += speed; moved = true; }
+
+  if (moved) {
+    player.x = Math.max(0, Math.min(game.clientWidth - 40, player.x));
+    player.y = Math.max(0, Math.min(game.clientHeight - 40, player.y));
+    updatePlayerPos();
+  }
+}, 1000 / 60);
+
+/* ---------------- Game over ---------------- */
+function gameOver() {
+  clearInterval(gameLoop);
+  const overlay = document.createElement("div");
+  overlay.classList.add("game-over");
+  overlay.innerHTML = `
+    <h2>💀 GAME OVER 💀</h2>
+    <p>Du hast Level ${player.level} erreicht!</p>
+    <p>Welle ${player.wave} geschafft!</p>
+    <button class="restart-btn" onclick="location.reload()">Neu starten</button>
+  `;
+  game.appendChild(overlay);
+}
+
+/* expose */
+window.selectClass = selectClass;
+window.chooseAbility = chooseAbility;
+window.chooseRole = chooseRole;
+window.toggleShop = toggleShop;
+window.shopBuy = shopBuy;
+
+/* =========================================================
+   🔥 GLOBAL UPGRADE PATCH – ALL FEATURES
+   ========================================================= */
+
+/* ---------- BOSS NERF ---------- */
+const _oldSpawnBoss = spawnBoss;
+spawnBoss = function () {
+  const bossEl = document.createElement("div");
+  bossEl.classList.add("enemy");
+  bossEl.style.fontSize = "44px";
+  bossEl.innerHTML = `👑<div class="health-bar" style="width:80px;"><div class="health-fill"></div></div>`;
+
+  const bossHp = 420 + player.level * 55 + player.wave * 80; // NERF
+  const boss = {
+    isBoss:true,
+    x:(game.clientWidth/2)-20,y:80,
+    hp:bossHp,maxHp:bossHp,
+    el:bossEl,phase:1
+  };
+
+  bossEl.style.left=boss.x+"px";
+  bossEl.style.top=boss.y+"px";
+  enemies.push(boss);
+  game.appendChild(bossEl);
+
+  bossHud.style.display="block";
+  updateBossHud(boss);
+
+  boss.attackTimer=setInterval(()=>{
+    if(boss.hp<=0)return;
+    const dmg = 10 + player.level*1.5 + Math.floor(player.wave*0.6);
+    if(getDistance(player,boss)<300) damagePlayer(dmg);
+  },1800);
+};
+
+/* ---------- SICHTBARE PROJEKTILE ---------- */
+function shootProjectile(fx,fy,tx,ty,color="#ffd93d"){
+  const p=document.createElement("div");
+  p.style.cssText=`position:absolute;width:10px;height:10px;border-radius:50%;
+  background:${color};box-shadow:0 0 12px ${color};z-index:99`;
+  p.style.left=fx+"px";p.style.top=fy+"px";
+  game.appendChild(p);
+
+  const dx=tx-fx,dy=ty-fy,dist=Math.hypot(dx,dy);
+  let t=0,steps=dist/12;
+  const iv=setInterval(()=>{
+    t++;p.style.left=(fx+dx*t/steps)+"px";
+    p.style.top=(fy+dy*t/steps)+"px";
+    if(t>=steps){clearInterval(iv);p.remove();}
+  },16);
+}
+
+const _oldExecuteTargeted = executeTargetedSkill;
+executeTargetedSkill = function(skill,btn,x,y){
+  shootProjectile(player.x+20,player.y+20,x,y,skill.color);
+  _oldExecuteTargeted(skill,btn,x,y);
+};
+
+/* ---------- RESPONSIVE / SMALL SCREEN ---------- */
+const style=document.createElement("style");
+style.innerHTML=`
+@media (max-width:700px){
+ #game{height:360px}
+ .skill-btn{width:56px;height:56px;font-size:22px}
+ .stat-bar{width:110px}
+}`;
+document.head.appendChild(style);
+
+/* ---------- ROLLENWAHL FÜR ALLE KLASSEN ---------- */
+const _oldNextWave = nextWave;
+nextWave = function(){
+  if(player.wave===4 && !player.role){
+    showRoleEvolutionChoice();
+    return;
+  }
+  _oldNextWave();
+};
+
+/* ---------- NEUE KLASSEN ---------- */
+baseSkills.Mönch=[
+ {name:"Fauststoß",dmg:32,cd:1200,emoji:"🥋",color:"#ffd93d"},
+ {name:"Chi-Welle",dmg:22,cd:2500,emoji:"🌀",color:"#4ecdc4",targeted:true}
+];
+baseSkills.Ingenieur=[
+ {name:"Schraubenschuss",dmg:28,cd:1300,emoji:"🔧",color:"#95e1d3",targeted:true},
+ {name:"Geschütz",dmg:0,cd:8000,emoji:"🤖",color:"#ff6b6b",special:"summon"}
+];
+classEmojis.Mönch="🥋";
+classEmojis.Ingenieur="🤖";
+
+
+</script>
+</body>
+</html>
+
