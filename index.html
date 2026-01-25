@@ -86,6 +86,7 @@
                 <th>Name</th>
                 <th class="size">Größe</th>
                 <th>Änderungsdatum</th>
+                <th>Download</th>
             </tr>
         </thead>
         <tbody id="fileList">
@@ -93,21 +94,49 @@
                 <td>📄 <a href="utilities/Minesweeper.html">Minesweeper.html</a></td>
                 <td class="size loading">Lade...</td>
                 <td class="loading">Lade...</td>
+                <td class="download"><button class="download-button" onclick="downloadHtml('utilities/Minesweeper.html')"><img width="24px" height="24px" src="dl.png"></img></button></td>
             </tr>
             <tr>
                 <td>📄 <a href="utilities/Gambling-Demo.html">Gambling-Demo.html</a></td>
                 <td class="size loading">Lade...</td>
                 <td class="loading">Lade...</td>
+                <td class="download"><button class="download-button" onclick="downloadHtml('utilities/Gambling-Demo.html')"><img width="24px" height="24px" src="dl.png"></img></button></td>
             </tr>
             <tr>
                 <td>📄 <a href="utilities/WoW-Multiplayer.html">WoW-Multiplayer.html</a></td>
                 <td class="size loading">Lade...</td>
                 <td class="loading">Lade...</td>
+                <td class="download"><button class="download-button" onclick="downloadHtml('utilities/WoW-Multiplayer.html')"><img width="24px" height="24px" src="dl.png"></img></button></td>
             </tr>
         </tbody>
     </table>
 
     <script>
+
+        async function downloadHtml(path) {
+             const fileName = path.split("/").pop();
+
+            try {
+              const res = await fetch(`./${path}`);
+             if (!res.ok) throw new Error("Fetch failed");
+
+             const html = await res.text();
+             const blob = new Blob([html], { type: "text/html" });
+             const url = URL.createObjectURL(blob);
+
+             const a = document.createElement("a");
+             a.href = url;
+             a.download = fileName;
+             document.body.appendChild(a);
+             a.click();
+             a.remove();
+
+             URL.revokeObjectURL(url);
+             } catch (err) {
+               alert(`Failed to download ${fileName}`);
+               console.error(err);
+            }
+        }
         // Funktion zur Formatierung der Dateigröße
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
