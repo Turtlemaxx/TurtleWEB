@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 80vh;
+        }
+        #check-icon {
+            margin-left: 1px;
+            margin-top: 2px;
+            transition: transform 0.3s ease;
+        }
+        #check-icon:hover {
+            transform: scale(1.2);
+            opacity: 0.8;
+        }
+        .h1 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .others {
+            display: flex;
+            margin: -20px;
+            margin-top: 5px;
+            font-size: 24px;
+            color: white;
+            transition: color 0.3s ease;
+            transition: transform 0.3s ease;
+            gap: 5px;
+        }
+        .maintext {
+            display: flex;
+            align-items: center;
+            gap: 1px;
+        }
+        .line {
+            width: 150px;
+            border: none;
+            height: 2px;
+            background: white;
+            margin-top: -10px;
+        }
+        .fa-envelope {
+            transition: color 0.3s ease;
+            transition: transform 0.3s ease;
+        }
+        .fa-github {
+            transition: color 0.3s ease;
+            transition: transform 0.3s ease;
+        }
+        .fa-github:hover {
+            color: #007bff;
+            transform: scale(1.2);
+        }
+        .fa-envelope:hover {
+            color: #007bff;
+            transform: scale(1.2);
+        }
+        .fa-discord {
+            transition: color 0.3s ease;
+            transition: transform 0.3s ease;
+        }
+        .fa-discord:hover {
+            color: #007bff;
+            transform: scale(1.2);
+        }
+        .fa-telegram {
+            transition: color 0.3s ease;
+            transition: transform 0.3s ease;
+        }
+        .fa-telegram:hover {
+            color: #007bff;
+            transform: scale(1.2);
+        }
+        a {
+            color: white;
+            text-decoration: none;
+        }
+        #toast {
+            position: fixed;
+            left: 50%;
+            bottom: -60px;
+            transform: translateX(-50%);
+            background-color: #007bff;
+            color: #000000;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            z-index: 1000;
+            transition: bottom 0.5s ease, opacity 0.5s ease;
+        }
+
+        #toast.show {
+            bottom: 30px;
+            opacity: 1;
+        }
+    </style>
+    <script>
+        function copyText(text) {
+            navigator.clipboard.writeText(text)
+                .then(() => showToast())
+                .catch(err => console.error("Failed to copy: ", err));
+        }
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.classList.add("show");
+
+            setTimeout(() => {
+                toast.classList.remove("show");
+            }, 1500);
+        }
+    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <title>Document</title>
+</head>
+<body>
+    <div class="container">
+        <div class="maintext">
+            <h1>Turtle</h1>
+            <img id="check-icon" src="check.png" alt="Icon" width="24" height="24">
+        </div>
+        <hr class="line">
+        <div class="others">
+            <a href="https://github.com/Turtlemaxx" target="_blank"><i class="fa-brands fa-github"></i></a>
+            <a onclick="copyText('turtie@tuta.io')"><i class="fa-solid fa-envelope"></i></a>
+            <a onclick="copyText('pastebjn')"><i class="fa-brands fa-discord"></i></a>
+            <a href="https://t.me/Turtlemaxxer" target="_blank"><i class="fa-brands fa-telegram"></i></a>
+        </div>
+    </div>
+    <div id="toast">Copied Text</div>
+</body>
+</html>
