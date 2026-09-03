@@ -145,6 +145,16 @@
         a {
             cursor: pointer;
         }
+
+        @media (max-width: 680px) {
+            nav ul {
+                display: block;
+            }
+            
+            nav ul li a {
+                margin-top: 10px;
+            }
+        }
     </style>
     <script>
         const clickSound = new Audio('blop.wav')
@@ -182,7 +192,7 @@
     <nav>
         <ul>
             <li><a onclick="takeTo('https://script.turties.xyz/blog.html')"><i class="fa-solid fa-rss"></i>Blogpost</a></li>
-            <li><a onclick="takeTo('https://norefmatters.xyz')">Check out my other Projects...</a></li>
+            <li><a onclick="takeTo('https://github.com/Turtlemaxx')">Check out my other Projects...</a></li>
             <li></i><a onclick="takeTo('https://script.turties.xyz/compiler.html')"><i class="fa-solid fa-code"></i>LuaObfuscator</a></li>
         </ul>
         <hr class="navline">
